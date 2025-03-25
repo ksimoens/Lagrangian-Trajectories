@@ -14,10 +14,10 @@ Grid::Grid(){
 
 void Grid::fill_vels(){
 
-	std::uniform_real_distribution<float> unif(0, 1);
+	std::uniform_real_distribution<float> unif(0, 0.2);
 
     for(int i=0;i < NLON*NLAT*365*(NYEAR+NYEARSTART);i++){
-		*(vels + i) = Vec(unif(rng),unif(rng));
+		*(vels + i) = Vec(unif(rng)-0.1,unif(rng)-0.1);
 	}
 
 }
@@ -42,14 +42,28 @@ void Grid::get_mus(){
 
 Vec* Grid::get_time_slice(int t){
 
-	Vec* slice = new Vec[NLON*NLAT];
+	Vec* slice = new Vec[NLON*NLAT*2];
 
-	for(int i=0;i < NLON;i++){
+	for(int k=0;k < 2;k++){
 		for(int j=0;j < NLAT;j++){
-			slice[i+NLON*j] = vels[i+NLON*(j+NLAT*t)];
+			for(int i=0;i < NLON;i++){
+				slice[i+NLON*(j+NLAT*k)] = vels[i+NLON*(j+NLAT*(k+t))];
+			}
 		}
 	}
 
 	return slice;
+
+}
+
+void Grid::timestep(int t){
+
+	Vec* velslice = get_time_slice(t);
+
+	for(int i=0;i<NPART;i++){
+		particles[i].RK_move(velslice,mus);
+	}
+
+	delete[] velslice;
 
 }

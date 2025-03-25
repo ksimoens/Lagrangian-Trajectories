@@ -15,12 +15,14 @@ class Grid{
 		void fill_vels();
 		void initial_particles();
 		void get_mus();
+		Vec* get_time_slice(int t);
 
 	public:
 		Grid();
 		~Grid(){delete[] vels; delete[] particles; delete[] mus;};
 
-		Vec* get_time_slice(int t);
+		void timestep(int t);
+		Particle* get_particles(){return particles;};
 
 };
 
