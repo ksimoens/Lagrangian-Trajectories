@@ -168,7 +168,6 @@ void Particle::RK_move(Vec* velgrid,float* mus){
 	Vec v2 = interpol(p2,velgrid,mus);
 	float num_v2 = 1.0/R/cos(lat_mu(p2.getY()));
 	Vec p3 = pos + (DT/2.0*v2 + K/2.0*dW)*num_v2;
-	std::cout << p2.getX() << std::endl;
 
 	Vec v3 = interpol(p3,velgrid,mus);
 	float num_v3 = 1.0/R/cos(lat_mu(p3.getY()));

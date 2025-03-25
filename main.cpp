@@ -8,10 +8,10 @@ int main(){
 	rng.seed(ss);
 
 	Grid grid;
-
+	std::cout << NYEAR << std::endl;
 	for(int i=0;i<365*NYEAR;i++){
-		grid.timestep(0);
-		std::cout << grid.get_particles()[0].getPos().getX() << std::endl;
+		grid.timestep(i);
+		//std::cout << i << std::endl;
 	}
 	
 	return 0;
