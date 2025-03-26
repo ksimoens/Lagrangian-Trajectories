@@ -8,6 +8,7 @@ class Particle{
 
 	private:
 		Vec pos{};
+		Vec* path{};
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
@@ -22,11 +23,13 @@ class Particle{
 	public:
 		Particle();
 		Particle(float x0, float y0);
+		~Particle(){delete[] path;path=0;};
 
 		Vec getPos(){return pos;};
+		Vec* getPath(){return path;};
 		void setPos(Vec pos0){pos = pos0;};
 
-		void RK_move(Vec* velgrid, float* mus);
+		void RK_move(Vec* velgrid, float* mus, int t);
 
 };
 

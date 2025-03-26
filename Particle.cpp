@@ -3,11 +3,15 @@
 
 Particle::Particle(){
 	pos = Vec(0.0,0.0);
+	path = new Vec[NYEAR*365];
+	path[0] = pos;
 }
 
 Particle::Particle(float x0,float y0){
 	pos = Vec(x0,y0);
 	trans_pos();
+	path = new Vec[NYEAR*365];
+	path[0] = pos;
 }
 
 float Particle::fun_lon(float x0, float lat){
@@ -72,7 +76,7 @@ int Particle::get_lat_index(Vec pos0, float* mus){
 }
 
 Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus,int t){
-
+	
 	int i = get_lon_index(pos0);
 	int j = get_lat_index(pos0,mus);
 	Vec intervel;
@@ -83,7 +87,7 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus,int t){
 		return(intervel);
 	}
 
-	Vec* edges = new Vec[4];
+	Vec edges[4];
 	float x1 = LONMIN+LONRES*i;
 	float x2 = x1+LONRES;
 	float y1 = mus[j];
@@ -99,8 +103,6 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus,int t){
 					edges[1]*(x2-pos0.getX())*(pos0.getY()-y1) +
 					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
 					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()));
-
-	delete[] edges;
 
 	return(intervel);
 
@@ -118,7 +120,7 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus){
 		return(intervel);
 	}
 
-	Vec* edges = new Vec[4];
+	Vec edges[4];
 	float x1 = LONMIN+LONRES*i;
 	float x2 = x1+LONRES;
 	float y1 = mus[j];
@@ -139,8 +141,6 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus){
 					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
 					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()));
 
-	delete[] edges;
-
 	return(intervel);
 
 }
@@ -153,7 +153,7 @@ float Particle::lat_mu(float mu){
 
 
 
-void Particle::RK_move(Vec* velgrid,float* mus){
+void Particle::RK_move(Vec* velgrid,float* mus,int t){
 
 	float K = sqrt(2*D);
 	std::normal_distribution<float> norm(0.0,sqrt(DT));
@@ -184,4 +184,6 @@ void Particle::RK_move(Vec* velgrid,float* mus){
 		pos.setY(-999.0);
 	}
 
-}
+	path[t] = pos;
+
+} 
