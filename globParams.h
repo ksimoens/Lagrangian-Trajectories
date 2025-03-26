@@ -9,10 +9,10 @@
 #include <cmath>
 
 // Total number of years to integrate.
-#define NYEAR 5
+#define NYEAR 25
 // Total number of years over which to start.
 #define NYEARSTART 1
-#define NPART 100
+#define NPART 100000
 // Starting year.
 //const int Ystart = 1993;
 // Diffusion constant.
