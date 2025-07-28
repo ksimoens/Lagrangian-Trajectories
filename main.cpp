@@ -8,10 +8,12 @@ int main(){
 	rng.seed(1);
 
 	Grid grid;
-	for(int i=0;i<365*NYEAR-1;i++){
-		grid.timestep(i);
-		std::cout << i << std::endl;
-	}
+	//for(int i=0;i<365*NYEAR-1;i++){
+	//	grid.timestep(i);
+	//	std::cout << i << std::endl;
+	//}
+
+	grid.do_simulation();
 
 	return 0;
 

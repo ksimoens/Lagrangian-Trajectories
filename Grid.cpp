@@ -3,7 +3,7 @@
 
 Grid::Grid(){
 	vels = new Vec[NLON*NLAT*365*(NYEAR)]();
-	velslice = new Vec[NLON*NLAT*2]();
+	//velslice = new Vec[NLON*NLAT*2]();
 	particles = new Particle[NPART]();
 	mus = new float[NLAT]();
 
@@ -17,8 +17,10 @@ void Grid::fill_vels(){
 
 	std::uniform_real_distribution<float> unif(0, 0.2);
 
-	#pragma omp parallel for
+	#pragma omp parallel for num_threads(4)
+	//std::cout << omp_get_num_threads() << std::endl;
     for(int i=0;i < NLON*NLAT*365*(NYEAR);i++){
+    	//std::cout << omp_get_num_threads() << std::endl;
 		vels[i] = Vec(unif(rng)-0.1,unif(rng)-0.1);
 	}
 
@@ -47,6 +49,7 @@ void Grid::get_mus(){
 
 }
 
+/*
 void Grid::get_time_slice(int t){
 
 	#pragma omp parallel for collapse (3)
@@ -67,6 +70,19 @@ void Grid::timestep(int t){
 	#pragma omp parallel for
 	for(int i=0;i<NPART;i++){
 		particles[i].RK_move(velslice,mus,t+1);
+	}
+
+}
+*/
+
+void Grid::do_simulation(){
+
+	std::cout << "parallel" << std::endl;
+	#pragma omp parallel for num_threads(4)
+	for(int i=0;i<NPART;i++){
+		//std::cout << omp_get_num_threads() << std::endl;
+		std::cout << i << std::endl;
+		particles[i].make_trajectory(vels,mus);
 	}
 
 }

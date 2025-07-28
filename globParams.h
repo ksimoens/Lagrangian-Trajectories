@@ -7,12 +7,14 @@
 #include <random>
 #include <chrono>
 #include <cmath>
+#include <omp.h>
 
+/*
 // Total number of years to integrate.
 #define NYEAR 25
 // Total number of years over which to start.
 #define NYEARSTART 1
-#define NPART 100000
+#define NPART 100
 // Starting year.
 //const int Ystart = 1993;
 // Diffusion constant.
@@ -39,7 +41,7 @@
 #define E2 0.0066960376522835485
 #define E1 0.0016796375940427949
 #define R 6367445.0
-
+*/
 extern std::mt19937_64 rng;
 
 extern float mu_lat(float lat);

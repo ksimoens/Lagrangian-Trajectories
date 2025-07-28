@@ -44,7 +44,7 @@ void Particle::trans_pos(){
 
 int Particle::get_lon_index(Vec pos0){
 
-	int i;
+	int i = 0;
 
 	if(pos0.getX() < LONMIN || pos0.getX() > LONMAX){
 		i = -1;
@@ -58,7 +58,7 @@ int Particle::get_lon_index(Vec pos0){
 
 int Particle::get_lat_index(Vec pos0, float* mus){
 
-	int i;
+	int i = 0;
 
 	if(pos0.getY() < MUMIN || pos0.getY() > MUMAX){
 		i = -1;
@@ -75,7 +75,7 @@ int Particle::get_lat_index(Vec pos0, float* mus){
 
 }
 
-Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus,int t){
+Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t){
 	
 	int i = get_lon_index(pos0);
 	int j = get_lat_index(pos0,mus);
@@ -93,10 +93,10 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus,int t){
 	float y1 = mus[j];
 	float y2 = mus[j+1];
 
-	edges[0] = velslice[i+NLON*(j+t*NLAT)];
-	edges[1] = velslice[i+NLON*(j+1+t*NLAT)];
-	edges[2] = velslice[(i+1)+NLON*(j+1+t*NLAT)];
-	edges[3] = velslice[(i+1)+NLON*(j+t*NLAT)];
+	edges[0] = velgrid[i+NLON*(j+(t+k)*NLAT)];
+	edges[1] = velgrid[i+NLON*(j+1+(t+k)*NLAT)];
+	edges[2] = velgrid[(i+1)+NLON*(j+1+(t+k)*NLAT)];
+	edges[3] = velgrid[(i+1)+NLON*(j+(t+k)*NLAT)];
 
 	intervel = 1.0/LONRES/(y2-y1)*
 				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
@@ -108,7 +108,7 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus,int t){
 
 }
 
-Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus){
+Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int t){
 
 	int i = get_lon_index(pos0);
 	int j = get_lat_index(pos0,mus);
@@ -126,14 +126,14 @@ Vec Particle::interpol(Vec pos0,Vec* velslice,float* mus){
 	float y1 = mus[j];
 	float y2 = mus[j+1];
 
-	edges[0] = (velslice[i+NLON*j] +
-					velslice[i+NLON*(j+NLAT)])/2;
-	edges[1] = (velslice[i+NLON*(j+1)] + 
-					velslice[i+NLON*(j+1+NLAT)])/2;
-	edges[2] = (velslice[(i+1)+NLON*(j+1)] +
-					velslice[(i+1)+NLON*(j+1+NLAT)])/2;
-	edges[3] = (velslice[(i+1)+NLON*j] + 
-					velslice[(i+1)+NLON*(j+NLAT)])/2;
+	edges[0] = (velgrid[i+NLON*(j+NLAT*t)] +
+					velgrid[i+NLON*(j+NLAT*(t+1))])/2;
+	edges[1] = (velgrid[i+NLON*((j+1)+NLAT*t)] + 
+					velgrid[i+NLON*(j+1+NLAT*(t+1))])/2;
+	edges[2] = (velgrid[(i+1)+NLON*(j+1+NLAT*t)] +
+					velgrid[(i+1)+NLON*(j+1+NLAT*(t+1))])/2;
+	edges[3] = (velgrid[(i+1)+NLON*(j+NLAT*t)] + 
+					velgrid[(i+1)+NLON*(j+NLAT*(t+1))])/2;
 
 	intervel = 1.0/LONRES/(y2-y1)*
 				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
@@ -161,19 +161,19 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	dW.setX(norm(rng));
 	dW.setY(norm(rng));
 
-	Vec v1 = interpol(pos,velgrid,mus,0);
+	Vec v1 = interpol(pos,velgrid,mus,0,t);
 	float num_v1 = 1.0/R/cos(lat_mu(pos.getY()));
 	Vec p2 = pos + (DT/2.0*v1 + K/2.0*dW)*num_v1;
 
-	Vec v2 = interpol(p2,velgrid,mus);
+	Vec v2 = interpol(p2,velgrid,mus,t);
 	float num_v2 = 1.0/R/cos(lat_mu(p2.getY()));
 	Vec p3 = pos + (DT/2.0*v2 + K/2.0*dW)*num_v2;
 
-	Vec v3 = interpol(p3,velgrid,mus);
+	Vec v3 = interpol(p3,velgrid,mus,t);
 	float num_v3 = 1.0/R/cos(lat_mu(p3.getY()));
 	Vec p4 = pos + (DT*v3 + K/2.0*dW)*num_v3;
 
-	Vec v4 = interpol(p4,velgrid,mus,1);
+	Vec v4 = interpol(p4,velgrid,mus,1,t);
 	float num_v4 = 1.0/R/cos(lat_mu(p4.getY()));
 
 	pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
@@ -187,3 +187,13 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	path[t] = pos;
 
 } 
+
+void Particle::make_trajectory(Vec* velgrid,float* mus){
+
+	for(int t=0;t<NYEAR*365-1;t++){
+
+		RK_move(velgrid,mus,t);
+
+	}
+
+}

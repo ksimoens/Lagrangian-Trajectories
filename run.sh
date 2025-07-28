@@ -1,1 +1,1 @@
-OMP_NUM_THREADS=2 /usr/bin/time ./simulation 
+OMP_NUM_THREADS=4 /usr/bin/time ./simulation 
