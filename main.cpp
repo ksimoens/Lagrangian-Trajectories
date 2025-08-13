@@ -16,7 +16,15 @@ int main(){
 	//	std::cout << i << std::endl;
 	//}
 
-	//grid.do_simulation();
+	grid.do_simulation();
+
+	std::ofstream myfile;
+	myfile.open ("test.csv");
+	myfile << "lon,mu\n";
+	for(int i=0;i<365*5+1;i++){
+		myfile << grid.get_particles()[0].getPathPos()[i].getX() << "," << 
+					grid.get_particles()[0].getPathPos()[i].getY() << "\n";
+	}
 
 	return 0;
 

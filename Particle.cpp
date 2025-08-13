@@ -5,14 +5,14 @@ Particle::Particle(){
 	this->pos = Vec(0.0,0.0);
 	this->starttime = 0;
 	#ifdef STOREPOS
-		this->path_pos = new Vec[NYEAR*365];
+		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0] = this->pos;
 	#else
 		this->path_pos = 0;
 	#endif
 
 	#ifdef STOREVEL
-		this->path_vel = new Vec[NYEAR*365];
+		this->path_vel = new Vec[NYEAR*365+1];
 	#else 
 		this->path_vel = 0;
 	#endif
@@ -23,7 +23,7 @@ Particle::Particle(float x0,float y0,int t0){
 	this->starttime = t0;
 	trans_pos();
 	#ifdef STOREPOS
-		this->path_pos = new Vec[NYEAR*365];
+		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0].setX(this->pos.getX());
 		this->path_pos[0].setY(this->pos.getY());
 	#else
@@ -31,7 +31,7 @@ Particle::Particle(float x0,float y0,int t0){
 	#endif
 
 	#ifdef STOREVEL
-		this->path_vel = new Vec[NYEAR*365];
+		this->path_vel = new Vec[NYEAR*365+1];
 	#else 
 		this->path_vel = 0;
 	#endif
@@ -49,9 +49,9 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* v
 	#endif
 
 	#ifdef STOREVEL
-		Vec vel_inter = interpol(this->pos,vels,mus,0,this->starttime);
+	/*	Vec vel_inter = interpol(this->pos,vels,mus,0,this->starttime);
 		this->path_vel[0].setX(vel_inter.getX());
-		this->path_vel[0].setY(vel_inter.getY());
+		this->path_vel[0].setY(vel_inter.getY());*/
 	#endif
 
 	#ifdef STOREPOS
@@ -209,6 +209,9 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	dW.setY(norm(rng));
 
 	Vec v1 = interpol(this->pos,velgrid,mus,0,t);
+	#ifdef STOREVEL
+		path_vel[t-this->starttime] = v1;
+	#endif
 	float num_v1 = 1.0/R/cos(lat_mu(this->pos.getY()));
 	Vec p2 = this->pos + (DT/2.0*v1 + K/2.0*dW)*num_v1;
 
@@ -226,12 +229,14 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	this->pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
 			K*dW/6.0*(num_v1 + 2.0*num_v2 + 2.0*num_v3 + num_v4);	
 
-	if(this->pos.getX() < -10.0){
+	if(v1.getX()+v2.getX()+v3.getX()+v4.getX() < -100.0){
 		this->pos.setX(-999.0);
 		this->pos.setY(-999.0);
 	}
-
-	this->path_pos[t] = this->pos;
+	
+	#ifdef STOREPOS
+		this->path_pos[t-this->starttime+1] = this->pos;
+	#endif 
 
 } 
 
@@ -239,7 +244,7 @@ void Particle::make_trajectory(Vec* velgrid,float* mus){
 
 	for(int t=0;t<NYEAR*365-1;t++){
 
-		RK_move(velgrid,mus,t);
+		RK_move(velgrid,mus,t+this->starttime);
 
 	}
 

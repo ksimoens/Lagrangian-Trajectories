@@ -11,7 +11,6 @@ Grid::Grid(float x0,float y0){
 	this->pos0 = Vec(x0,y0);
 	this->radius = 0.0;
 
-
 	//fill_vels();
 	initial_particles();
 	get_mus();
@@ -30,12 +29,7 @@ Grid::Grid(float x0,float y0,float r){
 	fill_vels();
 	get_mus();
 	initial_particles();
-	std::ofstream myfile;
-	myfile.open ("test.csv");
-	myfile << "lon,mu\n";
-	for(int i=0;i<3600;i++){
-		myfile << particles[i].getPathVel()[0].getX() << "," << particles[i].getPathVel()[0].getY() << "\n";
-	}
+
 }
 #endif
 
@@ -142,40 +136,13 @@ void Grid::get_mus(){
 
 }
 
-/*
-void Grid::get_time_slice(int t){
-
-	#pragma omp parallel for collapse (3)
-	for(int k=0;k < 2;k++){
-		for(int j=0;j < NLAT;j++){
-			for(int i=0;i < NLON;i++){
-				velslice[i+NLON*(j+NLAT*k)] = vels[i+NLON*(j+NLAT*(k+t))];
-			}
-		}
-	}
-
-}
-
-void Grid::timestep(int t){
-
-	get_time_slice(t);
-
-	#pragma omp parallel for
-	for(int i=0;i<NPART;i++){
-		particles[i].RK_move(velslice,mus,t+1);
-	}
-
-}
-*/
-
 void Grid::do_simulation(){
 
-	//std::cout << "parallel" << std::endl;
 	#pragma omp parallel for num_threads(4)
-	for(int i=0;i<NPART;i++){
-		//std::cout << omp_get_num_threads() << std::endl;
-		//std::cout << i << std::endl;
-		particles[i].make_trajectory(vels,mus);
+	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+		for(int j=0;j<NPART;j++){
+			this->particles[j+NPART*i].make_trajectory(vels,mus);
+		}
 	}
 
 }
