@@ -15,6 +15,8 @@ class Grid{
 		
 		void fill_vels();
 		void initial_particles();
+		size_t calc_ndays(int current_year);
+		void fill_vels_year(int year);
 		void get_mus();
 		//void get_time_slice(int t);
 

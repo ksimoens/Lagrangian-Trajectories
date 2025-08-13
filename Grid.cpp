@@ -2,7 +2,8 @@
 #include "globParams.h"
 
 Grid::Grid(){
-	vels = new Vec[NLON*NLAT*365*(NYEAR)]();
+
+	vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
 	particles = new Particle[NPART]();
 	mus = new float[NLAT]();
@@ -12,19 +13,76 @@ Grid::Grid(){
 	get_mus();
 }
 
+size_t Grid::calc_ndays(int current_year){
+
+	size_t nday = 0;
+	for(int year=YSTART;year<current_year;year++){
+
+		if((year%4==0) & (year!=2000)){
+			nday += 366;
+		} else{
+			nday += 365;
+		}
+
+	}
+
+	return(nday);
+
+}
 
 void Grid::fill_vels(){
 
-	std::uniform_real_distribution<float> unif(0, 0.2);
-
-	#pragma omp parallel for num_threads(4)
-	//std::cout << omp_get_num_threads() << std::endl;
-    for(int i=0;i < NLON*NLAT*365*(NYEAR);i++){
-    	//std::cout << omp_get_num_threads() << std::endl;
-		vels[i] = Vec(unif(rng)-0.1,unif(rng)-0.1);
+	for(int i=0;i<NYEAR+NYEARSTART;i++){
+		fill_vels_year(i);
 	}
 
-	//std::cout << vels[60+NLON*(84+NLAT*127)].getX() << std::endl;
+}
+
+void Grid::fill_vels_year(int year){
+
+	size_t nday;
+	size_t nday_before = calc_ndays(year+YSTART);
+
+	if(((year+YSTART)%4==0) & ((year+YSTART)!=2000)){
+		nday = 366;
+	} else{
+		nday = 365;
+	}
+
+	float grid_time_x[NLAT][NLON];
+	float grid_time_y[NLAT][NLON];
+
+	std::string ystr = std::to_string(year+YSTART);
+	netCDF::NcFile dataFile("../../network/curr_vel_transf/vel_"+std::to_string(year+YSTART)+".nc", netCDF::NcFile::read);
+
+	netCDF::NcVar velxVar;
+	velxVar = dataFile.getVar("u");
+	netCDF::NcVar velyVar;
+	velyVar = dataFile.getVar("v");
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(NLAT);
+	countp.push_back(NLON);
+
+	for (size_t day = 0; day < nday; day++){
+		// Read the data one record at a time.
+		startp[0]=day;
+		velxVar.getVar(startp,countp,grid_time_x);
+		velyVar.getVar(startp,countp,grid_time_y);
+     
+		for(int ilon=0;ilon<NLON;ilon++){
+			for(int ilat=0;ilat<NLAT;ilat++){
+				vels[ilon+NLON*(ilat+NLAT*(day+nday_before))] = 
+					Vec(grid_time_x[ilat][ilon],grid_time_y[ilat][ilon]);
+			}
+		}
+     
+	}
+
 
 }
 
@@ -37,7 +95,7 @@ void Grid::initial_particles(){
 		particles[i] = Particle(CELLLONMIN+100*unif(rng),CELLLATMIN+100*unif(rng));
 	}
 
-	std::cout << "particles" << std::endl;
+	//std::cout << "particles" << std::endl;
 
 }
 
@@ -77,11 +135,11 @@ void Grid::timestep(int t){
 
 void Grid::do_simulation(){
 
-	std::cout << "parallel" << std::endl;
+	//std::cout << "parallel" << std::endl;
 	#pragma omp parallel for num_threads(4)
 	for(int i=0;i<NPART;i++){
 		//std::cout << omp_get_num_threads() << std::endl;
-		std::cout << i << std::endl;
+		//std::cout << i << std::endl;
 		particles[i].make_trajectory(vels,mus);
 	}
 

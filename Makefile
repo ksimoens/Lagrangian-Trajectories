@@ -1,7 +1,9 @@
 #Total number of years to integrate.
-OPT += -DNYEAR=25
+OPT += -DNYEAR=10
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
+#Number of days between starting moments.
+OPT += -DDTSTART=10
 #Number of particles.
 OPT += -DNPART=100
 #Starting year.
@@ -34,6 +36,8 @@ OPT += -DE2=0.0066960376522835485
 OPT += -DE1=0.0016796375940427949
 OPT += -DR=6367445.0
 
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
 OBJS = main.o globParams.o Grid.o Particle.o Vec.o
 CFILES = main.cpp globParams.cpp Grid.cpp Particle.cpp Vec.cpp
 OPT_OPENMP = -fopenmp
@@ -41,12 +45,14 @@ EXEC = main
 CXX = g++
 OPTIMIZE = -O3 -Wall -g
 INCL = Makefile globParams.h Grid.h Particle.h Vec.h
+NCDFINCL = -lnetcdf-cxx4 -lnetcdf
+LIBS = -L/usr/local/lib
 
 OPTIONS = $(OPTIMIZE) $(OPT) $(OPT_OPENMP)
 CXXFLAGS = $(OPTIONS)
 
 $(EXEC): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $(EXEC)
+	$(CXX) $(CXXFLAGS) $(OBJS) $(LIBS) $(NCDFINCL) -o $(EXEC)
 
 $(OBJS): $(INCL) 
 

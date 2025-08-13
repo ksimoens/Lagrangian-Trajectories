@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cmath>
 #include <omp.h>
+#include <netcdf>
+#include <vector>
 
 /*
 // Total number of years to integrate.
