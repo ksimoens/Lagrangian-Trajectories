@@ -1,17 +1,43 @@
 #include "Grid.h"
+#include "Particle.h"
 #include "globParams.h"
 
-Grid::Grid(){
+Grid::Grid(float x0,float y0){
 
-	vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
-	particles = new Particle[NPART]();
-	mus = new float[NLAT]();
+	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)];
+	this->mus = new float[NLAT]();
+	this->pos0 = Vec(x0,y0);
+	this->radius = 0.0;
 
-	fill_vels();
+
+	//fill_vels();
 	initial_particles();
 	get_mus();
 }
+
+#ifdef CIRCULAR
+Grid::Grid(float x0,float y0,float r){
+
+	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	//velslice = new Vec[NLON*NLAT*2]();
+	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)]();
+	this->mus = new float[NLAT]();
+	this->pos0 = Vec(x0,y0);
+	this->radius = r;
+
+	fill_vels();
+	get_mus();
+	initial_particles();
+	std::ofstream myfile;
+	myfile.open ("test.csv");
+	myfile << "lon,mu\n";
+	for(int i=0;i<3600;i++){
+		myfile << particles[i].getPathVel()[0].getX() << "," << particles[i].getPathVel()[0].getY() << "\n";
+	}
+}
+#endif
 
 size_t Grid::calc_ndays(int current_year){
 
@@ -76,7 +102,7 @@ void Grid::fill_vels_year(int year){
      
 		for(int ilon=0;ilon<NLON;ilon++){
 			for(int ilat=0;ilat<NLAT;ilat++){
-				vels[ilon+NLON*(ilat+NLAT*(day+nday_before))] = 
+				this->vels[ilon+NLON*(ilat+NLAT*(day+nday_before))] = 
 					Vec(grid_time_x[ilat][ilon],grid_time_y[ilat][ilon]);
 			}
 		}
@@ -89,20 +115,29 @@ void Grid::fill_vels_year(int year){
 void Grid::initial_particles(){
 
 	std::uniform_real_distribution<float> unif(0, 1);
-
 	#pragma omp parallel for
-	for(int i=0;i < NPART;i++){
-		particles[i] = Particle(CELLLONMIN+100*unif(rng),CELLLATMIN+100*unif(rng));
+	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+		for(int j=0;j<NPART;j++){
+			float r1 = unif(rng);
+			float r2 = unif(rng);
+			this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i,vels,mus);
+		}
 	}
-
-	//std::cout << "particles" << std::endl;
 
 }
 
 void Grid::get_mus(){
 
-	for(int i=0;i < NLAT;i++){
-		mus[i] = mu_lat((LATMIN+i*VELRES)/180.0*M_PI);
+	float mus_in[NLAT];
+
+	netCDF::NcFile dataFile("../../network/curr_vel_transf/vel_1993.nc", netCDF::NcFile::read);
+
+	netCDF::NcVar muVar;
+	muVar = dataFile.getVar("mu");
+	muVar.getVar(mus_in);
+
+	for(int i=0;i<NLAT;i++){
+		this->mus[i] = mus_in[i];
 	}
 
 }

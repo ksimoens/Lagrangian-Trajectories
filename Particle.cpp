@@ -2,17 +2,64 @@
 #include "globParams.h"
 
 Particle::Particle(){
-	pos = Vec(0.0,0.0);
-	path = new Vec[NYEAR*365];
-	path[0] = pos;
+	this->pos = Vec(0.0,0.0);
+	this->starttime = 0;
+	#ifdef STOREPOS
+		this->path_pos = new Vec[NYEAR*365];
+		this->path_pos[0] = this->pos;
+	#else
+		this->path_pos = 0;
+	#endif
+
+	#ifdef STOREVEL
+		this->path_vel = new Vec[NYEAR*365];
+	#else 
+		this->path_vel = 0;
+	#endif
 }
 
-Particle::Particle(float x0,float y0){
-	pos = Vec(x0,y0);
+Particle::Particle(float x0,float y0,int t0){
+	this->pos = Vec(x0,y0);
+	this->starttime = t0;
 	trans_pos();
-	path = new Vec[NYEAR*365];
-	path[0] = pos;
+	#ifdef STOREPOS
+		this->path_pos = new Vec[NYEAR*365];
+		this->path_pos[0].setX(this->pos.getX());
+		this->path_pos[0].setY(this->pos.getY());
+	#else
+		this->path_pos = 0;
+	#endif
+
+	#ifdef STOREVEL
+		this->path_vel = new Vec[NYEAR*365];
+	#else 
+		this->path_vel = 0;
+	#endif
 }
+
+void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* vels,float* mus){
+
+	#ifdef CIRCULAR
+		float r_rand = r0*sqrt(r1);
+		float h_rand = 2.0*M_PI*r2;
+		this->pos.setX(pos0.getX()+r_rand*cos(h_rand));
+		this->pos.setY(pos0.getY()+r_rand*sin(h_rand));
+		trans_pos();
+		this->starttime = t0;
+	#endif
+
+	#ifdef STOREVEL
+		Vec vel_inter = interpol(this->pos,vels,mus,0,this->starttime);
+		this->path_vel[0].setX(vel_inter.getX());
+		this->path_vel[0].setY(vel_inter.getY());
+	#endif
+
+	#ifdef STOREPOS
+		this->path_pos[0].setX(this->pos.getX());
+		this->path_pos[0].setY(this->pos.getY());
+	#endif
+
+} 
 
 float Particle::fun_lon(float x0, float lat){
 
@@ -34,11 +81,11 @@ float Particle::get_mu(float y0){
 
 void Particle::trans_pos(){
 
-	float mu = get_mu(pos.getY());
+	float mu = get_mu(this->pos.getY());
 	float lat = fun_lat(mu);
 
-	pos.setX(fun_lon(pos.getX(),lat));
-	pos.setY(mu_lat(lat));
+	this->pos.setX(fun_lon(this->pos.getX(),lat));
+	this->pos.setY(mu_lat(lat));
 
 }
 
@@ -147,7 +194,7 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int t){
 
 float Particle::lat_mu(float mu){
 
-	return(M_PI/2.0-2.0*atan(exp(-mu)));
+	return(M_PI_2-2.0*atan(exp(-mu)));
 
 }
 
@@ -161,30 +208,30 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	dW.setX(norm(rng));
 	dW.setY(norm(rng));
 
-	Vec v1 = interpol(pos,velgrid,mus,0,t);
-	float num_v1 = 1.0/R/cos(lat_mu(pos.getY()));
-	Vec p2 = pos + (DT/2.0*v1 + K/2.0*dW)*num_v1;
+	Vec v1 = interpol(this->pos,velgrid,mus,0,t);
+	float num_v1 = 1.0/R/cos(lat_mu(this->pos.getY()));
+	Vec p2 = this->pos + (DT/2.0*v1 + K/2.0*dW)*num_v1;
 
 	Vec v2 = interpol(p2,velgrid,mus,t);
 	float num_v2 = 1.0/R/cos(lat_mu(p2.getY()));
-	Vec p3 = pos + (DT/2.0*v2 + K/2.0*dW)*num_v2;
+	Vec p3 = this->pos + (DT/2.0*v2 + K/2.0*dW)*num_v2;
 
 	Vec v3 = interpol(p3,velgrid,mus,t);
 	float num_v3 = 1.0/R/cos(lat_mu(p3.getY()));
-	Vec p4 = pos + (DT*v3 + K/2.0*dW)*num_v3;
+	Vec p4 = this->pos + (DT*v3 + K/2.0*dW)*num_v3;
 
 	Vec v4 = interpol(p4,velgrid,mus,1,t);
 	float num_v4 = 1.0/R/cos(lat_mu(p4.getY()));
 
-	pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
+	this->pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
 			K*dW/6.0*(num_v1 + 2.0*num_v2 + 2.0*num_v3 + num_v4);	
 
-	if(pos.getX() < -10.0){
-		pos.setX(-999.0);
-		pos.setY(-999.0);
+	if(this->pos.getX() < -10.0){
+		this->pos.setX(-999.0);
+		this->pos.setY(-999.0);
 	}
 
-	path[t] = pos;
+	this->path_pos[t] = this->pos;
 
 } 
 

@@ -12,6 +12,8 @@ class Grid{
 		//Vec* velslice;
 		Particle* particles;
 		float* mus;
+		Vec pos0;
+		float radius;
 		
 		void fill_vels();
 		void initial_particles();
@@ -21,12 +23,19 @@ class Grid{
 		//void get_time_slice(int t);
 
 	public:
-		Grid();
+		Grid(float x0,float y0);
+		#ifdef CIRCULAR
+			Grid(float x0,float y0,float r);
+		#endif
 		~Grid(){delete[] vels; delete[] mus;vels=0; mus=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};
 		void do_simulation();
+		void set_pos0(float x0,float y0){pos0=Vec(x0,y0);};
+		#ifdef CIRCULAR
+			void set_radius(float r){radius=r;};
+		#endif
 
 };
 

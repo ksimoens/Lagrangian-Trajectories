@@ -11,6 +11,9 @@
 #include <netcdf>
 #include <vector>
 
+#define str(x) #x
+#define strname(name) str(name)
+
 /*
 // Total number of years to integrate.
 #define NYEAR 25
