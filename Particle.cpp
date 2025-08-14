@@ -242,10 +242,14 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 
 void Particle::make_trajectory(Vec* velgrid,float* mus){
 
-	for(int t=0;t<NYEAR*365-1;t++){
+	for(int t=0;t<NYEAR*365;t++){
 
 		RK_move(velgrid,mus,t+this->starttime);
 
 	}
+
+	Vec last_vel = interpol(this->pos,velgrid,mus,0,NYEAR*365+this->starttime);
+	this->path_vel[NYEAR*365].setX(last_vel.getX());
+	this->path_vel[NYEAR*365].setY(last_vel.getY());
 
 }

@@ -13,6 +13,7 @@ struct config_params{
 	float x0;
 	float y0;
 	float r;
+	std::string w;
 
 };
 

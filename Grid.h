@@ -36,6 +36,7 @@ class Grid{
 		#ifdef CIRCULAR
 			void set_radius(float r){radius=r;};
 		#endif
+		void write_simulation(std::string w,double dt_init,double dt_sim);
 
 };
 

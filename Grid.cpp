@@ -114,7 +114,7 @@ void Grid::initial_particles(){
 		for(int j=0;j<NPART;j++){
 			float r1 = unif(rng);
 			float r2 = unif(rng);
-			this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i,vels,mus);
+			this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i*DTSTART,vels,mus);
 		}
 	}
 
@@ -144,5 +144,144 @@ void Grid::do_simulation(){
 			this->particles[j+NPART*i].make_trajectory(vels,mus);
 		}
 	}
+
+}
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	netCDF::NcFile data("output/"+w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Lagrangian simulation Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+	Particle p = Particle(this->pos0.getX(),this->pos0.getY(),0);
+	data.putAtt("central starting position","("+
+					std::to_string(p.getPos().getX()/M_PI*180)+" ; "+
+					std::to_string(p.lat_mu(p.getPos().getY())/M_PI*180)+") degrees");
+	#ifdef CIRCULAR
+		data.putAtt("initial condition","circular");
+		data.putAtt("radius",std::to_string(this->radius)+" km");
+	#endif
+
+
+	#if defined(STOREPOS) || defined(STOREVEL)
+		data.putAtt("simulation type","full trajectory");
+
+		netCDF::NcDim startDim = data.addDim("start", calc_ndays(NYEARSTART+YSTART)/DTSTART);
+		netCDF::NcDim partDim = data.addDim("particles", NPART);
+		netCDF::NcDim timeDim = data.addDim("time", NYEAR*365+1);
+
+		std::vector<netCDF::NcDim> dimVector;
+		dimVector.push_back(startDim);
+		dimVector.push_back(timeDim);
+		dimVector.push_back(partDim);
+
+		std::vector<netCDF::NcDim> dimVector_start;
+		dimVector_start.push_back(startDim);
+		std::vector<netCDF::NcDim> dimVector_time;
+		dimVector_time.push_back(timeDim);
+
+		netCDF::NcVar timeVar = data.addVar("time", netCDF::ncInt, dimVector_time);
+		timeVar.putAtt("units", "days");
+		int vec_time[NYEAR*365+1];
+		for(int i=0;i<(NYEAR*365+1);i++){
+			vec_time[i] = i;
+		}
+		std::vector<size_t> startp_time,countp_time;
+		startp_time.push_back(0);
+		countp_time.push_back(365*NYEAR+1);
+		timeVar.putVar(startp_time,countp_time,vec_time);
+
+		std::vector<size_t> startp,countp;
+		startp.push_back(0);
+		startp.push_back(0);
+		startp.push_back(0);
+		countp.push_back(1);
+		countp.push_back(NYEAR*365+1);
+		countp.push_back(NPART);
+
+		std::vector<size_t> startp_start,countp_start;
+		startp_start.push_back(0);
+		countp_start.push_back(calc_ndays(NYEARSTART+YSTART)/DTSTART);
+
+		std::string store_str = "";
+		#ifdef STOREPOS
+			store_str += "position ";
+
+			netCDF::NcVar posxVar = data.addVar("lon", netCDF::ncFloat, dimVector);
+			posxVar.putAtt("units", "radians");
+
+			float vec_part_posx[NYEAR*365+1][NPART];
+			netCDF::NcVar posyVar = data.addVar("mu", netCDF::ncFloat, dimVector);
+			posyVar.putAtt("units", "radians");
+			float vec_part_posy[NYEAR*365+1][NPART];
+		#endif
+
+		#ifdef STOREVEL
+			store_str += " velocity";
+
+			netCDF::NcVar velxVar = data.addVar("u", netCDF::ncFloat, dimVector);
+			velxVar.putAtt("units", "m/s");
+			float vec_part_velx[NYEAR*365+1][NPART];
+			netCDF::NcVar velyVar = data.addVar("v", netCDF::ncFloat, dimVector);
+			velyVar.putAtt("units", "m/s");
+			float vec_part_vely[NYEAR*365+1][NPART];
+		#endif
+
+		data.putAtt("stored data",store_str);
+
+		netCDF::NcVar startVar = data.addVar("start", netCDF::ncInt, dimVector_start);
+		startVar.putAtt("units", "days");
+		int vec_start[calc_ndays(NYEARSTART+YSTART)/DTSTART];
+
+		//#pragma omp parallel for num_threads(4)
+		for(size_t i=0;i < (calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+			vec_start[i] = i*DTSTART;
+			startp[0]=i;
+			for(int k=0;k < NPART;k++){
+				for(int j=0;j < (NYEAR*365+1);j++){
+					#ifdef STOREPOS
+						vec_part_posx[j][k] = particles[i*NPART+k].getPathPos()[j].getX();
+						vec_part_posy[j][k] = particles[i*NPART+k].getPathPos()[j].getY();
+					#endif
+					#ifdef STOREVEL
+						vec_part_velx[j][k] = particles[i*NPART+k].getPathVel()[j].getX();
+						vec_part_vely[j][k] = particles[i*NPART+k].getPathVel()[j].getY();
+					#endif
+				}				
+			}
+
+			#ifdef STOREPOS
+				posxVar.putVar(startp,countp,vec_part_posx);
+				posyVar.putVar(startp,countp,vec_part_posy);
+			#endif
+			#ifdef STOREVEL
+				velxVar.putVar(startp,countp,vec_part_velx);
+				velyVar.putVar(startp,countp,vec_part_vely);
+			#endif
+		}
+		startVar.putVar(startp_start,countp_start,vec_start);
+
+		data.putAtt("length of trajectories",std::to_string(NYEAR)+" years");
+		std::string start_str;
+		if(NYEARSTART == 1){
+			start_str = " year";
+		} else{
+			start_str = " years";
+		}
+		data.putAtt("length of initialisation",strname(NYEARSTART)+start_str);
+		data.putAtt("time between releases",std::to_string(DTSTART)+" days");
+		data.putAtt("number of particles per release",strname(NPART));
+		data.putAtt("starting date","01-01-"+std::to_string(YSTART));
+		data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+		auto t_end = std::chrono::high_resolution_clock::now();
+		double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+		data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+		data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+		data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+	#endif
 
 }

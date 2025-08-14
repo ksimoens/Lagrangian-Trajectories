@@ -10,6 +10,7 @@
 #include <omp.h>
 #include <netcdf>
 #include <vector>
+#include <ctime>
 
 #define str(x) #x
 #define strname(name) str(name)

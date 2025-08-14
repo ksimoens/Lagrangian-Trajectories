@@ -33,6 +33,10 @@ struct config_params read_config(){
 			std::string r;
 			in >> r;
 			myparams.r = sqrt(std::stof(r,&pos)/M_PI);
+		} else if(param == "write"){
+			std::string w0;
+			in >> w0;
+			myparams.w = w0;
 		}
 
 	}

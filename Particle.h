@@ -20,7 +20,6 @@ class Particle{
 		int get_lat_index(Vec pos0, float* mus);
 		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int t);
 		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t);
-		float lat_mu(float mu);
 
 	public:
 		Particle();
@@ -31,6 +30,9 @@ class Particle{
 		Vec* getPathPos(){return path_pos;};
 		Vec* getPathVel(){return path_vel;};
 		void setPos(Vec pos0){pos = pos0;};
+		int get_starttime(){return this->starttime;};
+		void set_starttime(int t0){this->starttime=t0;};
+		float lat_mu(float mu);
 
 		void RK_move(Vec* velgrid, float* mus, int t);
 
