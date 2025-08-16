@@ -216,8 +216,8 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 		initxVar.putAtt("units", "radians");
 		netCDF::NcVar inityVar = data.addVar("mu_0", netCDF::ncFloat, dimVector_init);
 		inityVar.putAtt("units", "radians");
-		int vec_initx[calc_ndays(NYEARSTART+YSTART)/DTSTART][NPART];
-		int vec_inity[calc_ndays(NYEARSTART+YSTART)/DTSTART][NPART];
+		float vec_initx[calc_ndays(NYEARSTART+YSTART)/DTSTART][NPART];
+		float vec_inity[calc_ndays(NYEARSTART+YSTART)/DTSTART][NPART];
 		for(size_t i=0;i<calc_ndays(NYEARSTART+YSTART)/DTSTART;i++){
 			for(int j=0;j<NPART;j++){
 				vec_initx[i][j] = particles[i*NPART+j].getPathPos()[0].getX();

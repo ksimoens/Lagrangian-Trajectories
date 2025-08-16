@@ -16,11 +16,7 @@ int main(){
 
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_init = std::chrono::duration<double, std::milli>(t_end-t_start).count();
-	//for(int i=0;i<365*NYEAR-1;i++){
-	//	grid.timestep(i);
-	//	std::cout << i << std::endl;
-	//}
-
+	
 	t_start = std::chrono::high_resolution_clock::now();
 	grid.do_simulation();
 	t_end = std::chrono::high_resolution_clock::now();

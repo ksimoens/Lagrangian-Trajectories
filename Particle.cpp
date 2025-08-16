@@ -144,7 +144,7 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t){
 	edges[1] = velgrid[i+NLON*(j+1+(t+k)*NLAT)];
 	edges[2] = velgrid[(i+1)+NLON*(j+1+(t+k)*NLAT)];
 	edges[3] = velgrid[(i+1)+NLON*(j+(t+k)*NLAT)];
-
+	
 	intervel = 1.0/LONRES/(y2-y1)*
 				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
 					edges[1]*(x2-pos0.getX())*(pos0.getY()-y1) +
@@ -229,7 +229,7 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	this->pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
 			K*dW/6.0*(num_v1 + 2.0*num_v2 + 2.0*num_v3 + num_v4);	
 
-	if(v1.getX()+v2.getX()+v3.getX()+v4.getX() < -100.0){
+	if(v1.getX()+v2.getX()+v3.getX()+v4.getX() < -10.0){
 		this->pos.setX(-999.0);
 		this->pos.setY(-999.0);
 	}
