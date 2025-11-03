@@ -1,4 +1,5 @@
-x0 -4341.885554705
-y0 3320.11013418416
+x0 -6373.40246859828
+y0 3261.14168076952
 srf 10000
-write sim_sargasso_vel_12
+write /media/kobe/Windows/spectrum/output/sim_sargasso_vel_49
+velocity /media/kobe/Shared%Partition/spectrum/vel_transf

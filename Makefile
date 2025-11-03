@@ -5,7 +5,7 @@ OPT += -DNYEARSTART=1
 #Number of days between starting moments.
 OPT += -DDTSTART=20
 #Number of particles.
-OPT += -DNPART=100
+OPT += -DNPART=1000
 #Starting year.
 OPT += -DYSTART=1993
 #Diffusion constant.
@@ -13,13 +13,13 @@ OPT += -DD=100.0
 #Timestep (seconds)
 OPT += -DDT=86400.0
 #Shape of velocity grid.
-OPT += -DNLON=368
-OPT += -DNLAT=200
+OPT += -DNLON=420
+OPT += -DNLAT=240
 #Extent of velocity grid.
-OPT += -DLONMIN=-1.428988325
-OPT += -DLONMAX=0.172351264
+OPT += -DLONMIN=-1.568614665
+OPT += -DLONMAX=0.259617726
 OPT += -DLONRES=0.004363323
-OPT += -DMUMIN=0.3587011
+OPT += -DMUMIN=0.1776416
 OPT += -DMUMAX=1.7290554
 #Particle properties.
 OPT += -DSTOREPOS

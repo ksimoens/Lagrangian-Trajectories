@@ -2,7 +2,7 @@
 #include "Particle.h"
 #include "globParams.h"
 
-Grid::Grid(float x0,float y0){
+Grid::Grid(float x0,float y0,std::string veldir){
 
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
@@ -13,11 +13,11 @@ Grid::Grid(float x0,float y0){
 
 	//fill_vels();
 	initial_particles();
-	get_mus();
+	get_mus(veldir);
 }
 
 #ifdef CIRCULAR
-Grid::Grid(float x0,float y0,float r){
+Grid::Grid(float x0,float y0,float r,std::string veldir){
 
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
@@ -26,8 +26,8 @@ Grid::Grid(float x0,float y0,float r){
 	this->pos0 = Vec(x0,y0);
 	this->radius = r;
 
-	fill_vels();
-	get_mus();
+	fill_vels(veldir);
+	get_mus(veldir);
 	initial_particles();
 
 }
@@ -50,15 +50,15 @@ size_t Grid::calc_ndays(int current_year){
 
 }
 
-void Grid::fill_vels(){
+void Grid::fill_vels(std::string veldir){
 
 	for(int i=0;i<NYEAR+NYEARSTART;i++){
-		fill_vels_year(i);
+		fill_vels_year(i,veldir);
 	}
 
 }
 
-void Grid::fill_vels_year(int year){
+void Grid::fill_vels_year(int year,std::string veldir){
 
 	size_t nday;
 	size_t nday_before = calc_ndays(year+YSTART);
@@ -71,10 +71,8 @@ void Grid::fill_vels_year(int year){
 
 	float grid_time_x[NLAT][NLON];
 	float grid_time_y[NLAT][NLON];
-
 	std::string ystr = std::to_string(year+YSTART);
-	netCDF::NcFile dataFile("../../network/curr_vel_transf/vel_"+std::to_string(year+YSTART)+".nc", netCDF::NcFile::read);
-
+	netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(year+YSTART)+".nc", netCDF::NcFile::read);
 	netCDF::NcVar velxVar;
 	velxVar = dataFile.getVar("u");
 	netCDF::NcVar velyVar;
@@ -120,11 +118,11 @@ void Grid::initial_particles(){
 
 }
 
-void Grid::get_mus(){
+void Grid::get_mus(std::string veldir){
 
 	float mus_in[NLAT];
 
-	netCDF::NcFile dataFile("../../network/curr_vel_transf/vel_1993.nc", netCDF::NcFile::read);
+	netCDF::NcFile dataFile(veldir+"/vel_1993.nc", netCDF::NcFile::read);
 
 	netCDF::NcVar muVar;
 	muVar = dataFile.getVar("mu");
@@ -150,7 +148,7 @@ void Grid::do_simulation(){
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	auto t_start = std::chrono::high_resolution_clock::now();
-	netCDF::NcFile data("output/"+w+".nc", netCDF::NcFile::replace);
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
 	data.putAtt("title","Lagrangian simulation Northern Atlantic Ocean");
 	time_t timestamp;

@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <sstream>
 #include <fstream>
 #include <random>
 #include <chrono>
@@ -11,6 +12,7 @@
 #include <netcdf>
 #include <vector>
 #include <ctime>
+#include <algorithm>
 
 #define str(x) #x
 #define strname(name) str(name)

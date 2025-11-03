@@ -5,8 +5,8 @@ struct config_params read_config(){
 	// open the configuration file
 	std::ifstream in(strname(CONFIGPATH));
 
-	// variables for the parameter name
-	std::string param;
+	// variables for the file line
+	std::string line;
 
 	std::size_t pos;
 
@@ -14,29 +14,33 @@ struct config_params read_config(){
 	struct config_params myparams;
 
 	// read the lines in the configuration file
-	while(!in.eof()){
+	//while(!in.eof()){
+	while(getline( in, line )){
 
-		// read the first word on the line
-		in >> param;
+		std::stringstream ss(line);
+		std::string s;
+		std::string params[2];
+		int i=0;
+		while (getline(ss, s, ' ')) {
+		// store token string in the vector
+        	params[i] = s;
+        	i++;
+    	}
 
 		// the horizontal initial position (degrees)
-		if(param == "x0"){
-			std::string x0;
-			in >> x0;
-			myparams.x0 = std::stof(x0,&pos);
+		if(params[0] == "x0"){
+			myparams.x0 = std::stof(params[1],&pos);
 		// the vertical initial position (degrees)
-		} else if(param == "y0"){
-			std::string y0;
-			in >> y0;
-			myparams.y0 = std::stof(y0,&pos);
-		} else if(param == "srf"){
-			std::string r;
-			in >> r;
-			myparams.r = sqrt(std::stof(r,&pos)/M_PI);
-		} else if(param == "write"){
-			std::string w0;
-			in >> w0;
-			myparams.w = w0;
+		} else if(params[0] == "y0"){
+			myparams.y0 = std::stof(params[1],&pos);
+		} else if(params[0] == "srf"){
+			myparams.r = sqrt(std::stof(params[1],&pos)/M_PI);
+		} else if(params[0] == "write"){
+			myparams.w = params[1];
+			std::replace(myparams.w.begin(),myparams.w.end(),'%',' ');
+		} else if(params[0] == "velocity"){
+			myparams.v = params[1];
+			std::replace(myparams.v.begin(),myparams.v.end(),'%',' ');
 		}
 
 	}

@@ -11,10 +11,10 @@ do
         echo "I got:$col1|$col2"
         sed -i "1s/.*/x0 $col1/" config
         sed -i "2s/.*/y0 $col2/" config
-        sed -i "4s/.*/write sim_sargasso_vel_$(printf "%02d" $i)/" config
+        sed -i "4s/.*/write \/media\/kobe\/Windows\/spectrum\/output\/sim_sargasso_vel_$(printf "%02d" $i)/" config
         ((i++))
         OMP_NUM_THREADS=4 ./main
     fi
-done < initial/sargasso_points_vel.csv
+done < initial/sargasso_points_pos.csv
 
 #OMP_NUM_THREADS=4 /usr/bin/time ./simulation 

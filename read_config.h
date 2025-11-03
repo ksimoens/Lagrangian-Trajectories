@@ -14,6 +14,7 @@ struct config_params{
 	float y0;
 	float r;
 	std::string w;
+	std::string v;
 
 };
 
