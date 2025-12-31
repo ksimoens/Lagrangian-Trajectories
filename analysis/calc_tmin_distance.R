@@ -23,7 +23,7 @@ dir <- "/media/kobe/Windows/spectrum/output/"
 
 list_sim <- list.files(dir)
 
-for(sim_i in 20:length(list_sim)){
+for(sim_i in 1:length(list_sim)){
 	print(sim_i)
 
 nc_sim <- nc_open(paste0(dir,list_sim[sim_i]))
@@ -32,10 +32,10 @@ lon_mat <- nc_sim %>% ncvar_get("lon")
 lon_mat[lon_mat==-999] <- NA
 mu_mat <- nc_sim %>% ncvar_get("mu")
 mu_mat[mu_mat==-999] <- NA
-u_mat <- nc_sim %>% ncvar_get("u")
-u_mat[abs(u_mat) > 5] <- NA
-v_mat <- nc_sim %>% ncvar_get("v")
-v_mat[abs(v_mat) > 5] <- NA
+#u_mat <- nc_sim %>% ncvar_get("u")
+#u_mat[abs(u_mat) > 5] <- NA
+#v_mat <- nc_sim %>% ncvar_get("v")
+#v_mat[abs(v_mat) > 5] <- NA
 
 atts <- nc_sim %>% ncatt_get(0)
 
@@ -90,7 +90,7 @@ sf_pos <- rbind(sf_pos,
 sf_pos <- sf_pos %>% filter(!is.na(lon)) %>% 
 			st_as_sf(crs=4326,coords=c("lon","lat")) 
 
-sf_pos <- sf_pos %>% slice(which((st_intersects(sf_pos,sarg,sparse=FALSE) %>% as.numeric()) == 1))
+#sf_pos <- sf_pos %>% slice(which((st_intersects(sf_pos,sarg,sparse=FALSE) %>% as.numeric()) == 1))
 
 sf_pos <- sf_pos %>% mutate(distance=(st_distance(.,pos0) %>% as.numeric())/1e3)
 

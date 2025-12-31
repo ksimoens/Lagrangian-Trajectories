@@ -32,15 +32,16 @@ make_hist <- function(vec){
 
 }
 
-if(F){
+if(T){
 df_hist <- matrix(ncol=4,nrow=0) %>% as.data.frame() %>%
 			rename(counts=V1,density=V2,distance=V3,simID=V4)
 
-df_coef <- matrix(ncol=5,nrow=0) %>% as.data.frame() %>%
-			rename(a_rms=V1,b_rms=V2,a_D=V3,b_D=V4,simID=V5)
+df_coef <- matrix(ncol=9,nrow=0) %>% as.data.frame() %>%
+			rename(a_rms=V1,b_rms=V2,a_drms=V3,b_drms=V4,
+					a_D=V5,b_D=V6,a_Pe=V7,b_Pe=V8,simID=V9)
 
-df_velD <- matrix(ncol=4,nrow=0) %>% as.data.frame() %>%
-			rename(distance=V1,D=V2,velrms=V3,simID=V4)
+df_velD <- matrix(ncol=6,nrow=0) %>% as.data.frame() %>%
+			rename(distance=V1,D=V2,velrms=V3,dvelrms=V4,Pe=V5,simID=V6)
 
 df_fit <- matrix(ncol=4,nrow=0) %>% as.data.frame() %>%
 			rename(x=V1,y=V2,distance=V3,simID=V4)
@@ -87,11 +88,21 @@ for(i in 1:length(dists)){
 
 }
 
-df_dist <- df_dist %>% filter(!is.na(velrms))
+df_dist <- df_dist %>% filter(!is.na(velrms)) %>%
+			mutate(dvelrms=distance*velrms*1e3) %>%
+			mutate(Pe=dvelrms/D)
 
 lm_rms <- lm(data=df_dist,log10(velrms)~log10(distance))
 
 coef_rms <- summary(lm_rms)$coefficients[1:2]
+
+lm_drms <- lm(data=df_dist,log10(dvelrms)~log10(distance))
+
+coef_drms <- summary(lm_drms)$coefficients[1:2]
+
+lm_Pe <- lm(data=df_dist,log10(Pe)~log10(distance))
+
+coef_Pe <- summary(lm_Pe)$coefficients[1:2]
 
 lm_D <- lm(data=df_dist %>% select(distance,D) %>% unique(),
 					log10(D)~log10(distance))
@@ -100,10 +111,14 @@ coef_D <- summary(lm_D)$coefficients[1:2]
 
 df_coef <- rbind(df_coef,
 			data.frame(a_rms=coef_rms[2],b_rms=coef_rms[1],
-						a_D=coef_D[2],b_D=coef_D[1],simID=sim_i))
+						a_drms=coef_drms[2],b_drms=coef_drms[1],
+						a_D=coef_D[2],b_D=coef_D[1],
+						a_Pe=coef_D[2],b_Pe=coef_D[1],simID=sim_i))
 
 df_velD <- rbind(df_velD,df_dist %>% group_by(distance) %>%
-					summarise(D=mean(D),velrms=10^mean(log10(velrms))) %>%
+					summarise(D=mean(D),velrms=10^mean(log10(velrms)),
+								dvelrms=10^mean(log10(dvelrms)),
+								Pe=10^mean(log10(Pe))) %>%
 					mutate(simID=sim_i))
 
 }
@@ -127,6 +142,22 @@ p <- df_velD %>% ggplot() +
 p %>% ggsave("summary_velrms_distance.png",.,device="png",width=15,height=10,units="cm")
 
 p <- df_velD %>% ggplot() + 
+					geom_boxplot(aes(x=distance,y=dvelrms,group=distance)) +
+					scale_x_continuous(name="distance (km)") +
+					scale_y_continuous(name=bquote(d%*%sqrt("<"~v[tot]^2~">")~(m^2/s)),trans="log10") +
+					theme_bw()
+
+p %>% ggsave("summary_dvelrms_distance.png",.,device="png",width=15,height=10,units="cm")
+
+p <- df_velD %>% ggplot() + 
+					geom_boxplot(aes(x=distance,y=Pe,group=distance)) +
+					scale_x_continuous(name="distance (km)") +
+					scale_y_continuous(name=bquote(Pe[d]),trans="log10") +
+					theme_bw()
+
+p %>% ggsave("summary_Pe_distance.png",.,device="png",width=15,height=10,units="cm")
+
+p <- df_velD %>% ggplot() + 
 					geom_boxplot(aes(x=distance,y=D,group=distance)) +
 					scale_x_continuous(name="distance (km)") +
 					scale_y_continuous(name=bquote(D~(m^2/s)),trans="log10") +
@@ -137,6 +168,8 @@ p %>% ggsave("summary_D_distance.png",.,device="png",width=15,height=10,units="c
 phist_list <- list()
 pD_list <- list()
 pvel_list <- list()
+pdvel_list <- list()
+pPe_list <- list()
 IDs <- df_hist %>% pull(simID) %>% unique()
 for(id in IDs){
 
@@ -180,19 +213,55 @@ for(id in IDs){
 
 	pvel_list <- append(pvel_list,list(p))
 
+	df_fit_i <- data.frame(x=10^seq(log10(475),log10(1025),length=100)) %>%
+				mutate(y=10^((df_coef %>% filter(simID==id) %>% pull(b_drms)) +
+							(df_coef %>% filter(simID==id) %>% pull(a_drms))*log10(x)))
+
+	p <- ggplot() +
+		geom_point(data=df_velD %>% filter(simID==id),aes(x=distance,y=dvelrms)) +
+		geom_line(data=df_fit_i,aes(x=x,y=y)) +
+		scale_x_continuous(name="distance (km)",trans="log10") +
+		scale_y_continuous(name=bquote(d%*%sqrt("<"~v[tot]^2~">")~(m^2/s)),trans="log10") +
+		theme_bw() +
+		labs(title=sprintf("slope: %.2f",df_coef %>% filter(simID==id) %>% pull(a_drms)))
+
+	pdvel_list <- append(pdvel_list,list(p))
+
+	df_fit_i <- data.frame(x=10^seq(log10(475),log10(1025),length=100)) %>%
+				mutate(y=10^((df_coef %>% filter(simID==id) %>% pull(b_Pe)) +
+							(df_coef %>% filter(simID==id) %>% pull(a_Pe))*log10(x)))
+
+	p <- ggplot() +
+		geom_point(data=df_velD %>% filter(simID==id),aes(x=distance,y=Pe)) +
+		geom_line(data=df_fit_i,aes(x=x,y=y)) +
+		scale_x_continuous(name="distance (km)",trans="log10") +
+		scale_y_continuous(name=bquote(Pe[d]),trans="log10") +
+		theme_bw() +
+		labs(title=sprintf("slope: %.2f",df_coef %>% filter(simID==id) %>% pull(a_Pe)))
+
+	pPe_list <- append(pPe_list,list(p))
+
 }
 
-q <- ggarrange(plotlist=phist_list,ncol=5,nrow=ceiling(length(p_list)/5),
+q <- ggarrange(plotlist=phist_list,ncol=5,nrow=ceiling(length(phist_list)/5),
 				common.legend=TRUE,legend="top")
-q %>% ggsave("fit_hist.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(p_list)/5)*6.67,
+q %>% ggsave("fit_hist.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(phist_list)/5)*6.67,
 				units="cm",bg="white")
 
 q <- ggarrange(plotlist=pD_list,ncol=5,nrow=ceiling(length(pD_list)/5))
-q %>% ggsave("summary_D_distance.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(p_list)/5)*6.67,
+q %>% ggsave("summary_D_distance.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(pD_list)/5)*6.67,
 				units="cm",bg="white")
 
 q <- ggarrange(plotlist=pvel_list,ncol=5,nrow=ceiling(length(pvel_list)/5))
-q %>% ggsave("summary_velrms_distance.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(p_list)/5)*6.67,
+q %>% ggsave("summary_velrms_distance.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(pvel_list)/5)*6.67,
+				units="cm",bg="white")
+
+q <- ggarrange(plotlist=pdvel_list,ncol=5,nrow=ceiling(length(pdvel_list)/5))
+q %>% ggsave("summary_dvelrms_distance.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(pdvel_list)/5)*6.67,
+				units="cm",bg="white")
+
+q <- ggarrange(plotlist=pPe_list,ncol=5,nrow=ceiling(length(pPe_list)/5))
+q %>% ggsave("summary_Pe_distance.pdf",.,device=cairo_pdf,width=5*10,height=ceiling(length(pPe_list)/5)*6.67,
 				units="cm",bg="white")
 
 p <- df_coef %>% filter(a_D > 0 & a_rms > 0) %>% ggplot() +
@@ -201,4 +270,12 @@ p <- df_coef %>% filter(a_D > 0 & a_rms > 0) %>% ggplot() +
 		scale_y_continuous(name=bquote(slope~sqrt("<"~v[tot]^2~">"))) +
 		theme_bw()
 
-p %>% ggsave("compare_slopes.png",.,device="png",width=11,height=10,units="cm")
+p %>% ggsave("compare_slopes_rms_D.png",.,device="png",width=11,height=10,units="cm")
+
+p <- df_coef %>% filter(a_D > 0 & a_drms > 0) %>% ggplot() +
+		geom_point(aes(x=a_D,y=a_drms)) +
+		scale_x_continuous(name="slope D") +
+		scale_y_continuous(name=bquote(slope~d%*%sqrt("<"~v[tot]^2~">"))) +
+		theme_bw()
+
+p %>% ggsave("compare_slopes_drms_D.png",.,device="png",width=11,height=10,units="cm")

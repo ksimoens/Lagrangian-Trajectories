@@ -71,7 +71,7 @@ dir <- "/media/kobe/Windows/spectrum/output/"
 
 list_sim <- list.files(dir)
 
-for(sim_i in 4:length(list_sim)){
+for(sim_i in 1:length(list_sim)){
 
 	print(sim_i)
 
@@ -81,10 +81,10 @@ lon_mat <- nc_sim %>% ncvar_get("lon")
 lon_mat[lon_mat==-999] <- NA
 mu_mat <- nc_sim %>% ncvar_get("mu")
 mu_mat[mu_mat==-999] <- NA
-u_mat <- nc_sim %>% ncvar_get("u")
-u_mat[abs(u_mat) > 5] <- NA
-v_mat <- nc_sim %>% ncvar_get("v")
-v_mat[abs(v_mat) > 5] <- NA
+#u_mat <- nc_sim %>% ncvar_get("u")
+#u_mat[abs(u_mat) > 5] <- NA
+#v_mat <- nc_sim %>% ncvar_get("v")
+#v_mat[abs(v_mat) > 5] <- NA
 
 atts <- nc_sim %>% ncatt_get(0)
 pos0 <- atts$'central starting position'

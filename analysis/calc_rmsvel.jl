@@ -6,7 +6,7 @@ distdir = "/media/kobe/Windows/spectrum/target/"
 
 list_sim = readdir(veldir)
 
-for sim_i in 3:length(list_sim)
+for sim_i in 1:length(list_sim)
 
 	println(sim_i)
 

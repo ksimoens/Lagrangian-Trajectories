@@ -112,9 +112,9 @@ int Particle::get_lat_index(Vec pos0, float* mus){
 	} else{
 		for(int j=0;j < NLAT;j++){
 			if(pos0.getY() < mus[j]){
+				i = j-1;
 				break;
 			}
-			i = j;
 		}
 	}
 
@@ -229,7 +229,7 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 	this->pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
 			K*dW/6.0*(num_v1 + 2.0*num_v2 + 2.0*num_v3 + num_v4);	
 
-	if(v1.getX()+v2.getX()+v3.getX()+v4.getX() < -10.0){
+	if(v1.getX() < -100.0 || v2.getX() < -100.0 || v3.getX() < -100.0 || v4.getX() < -100.0){
 		this->pos.setX(-999.0);
 		this->pos.setY(-999.0);
 	}
@@ -243,13 +243,14 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 void Particle::make_trajectory(Vec* velgrid,float* mus){
 
 	for(int t=0;t<NYEAR*365;t++){
-
 		RK_move(velgrid,mus,t+this->starttime);
 
 	}
 
-	Vec last_vel = interpol(this->pos,velgrid,mus,0,NYEAR*365+this->starttime);
-	this->path_vel[NYEAR*365].setX(last_vel.getX());
-	this->path_vel[NYEAR*365].setY(last_vel.getY());
+	#ifdef STOREVEL
+		Vec last_vel = interpol(this->pos,velgrid,mus,0,NYEAR*365+this->starttime);
+		this->path_vel[NYEAR*365].setX(last_vel.getX());
+		this->path_vel[NYEAR*365].setY(last_vel.getY());
+	#endif
 
 }

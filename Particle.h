@@ -38,9 +38,7 @@ class Particle{
 
 		void make_trajectory(Vec* velgrid, float* mus);
 
-		#ifdef STOREVEL
-			void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* velgrid,float* mus);
-		#endif
+		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* velgrid,float* mus);
 
 };
 
