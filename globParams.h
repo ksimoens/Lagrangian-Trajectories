@@ -53,5 +53,6 @@
 extern std::mt19937_64 rng;
 
 extern float mu_lat(float lat);
+extern float sgn(float val);
 
 #endif //SIM_GLOBALCONSTS_H

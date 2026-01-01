@@ -43,7 +43,6 @@ Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)]();
 	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
-	this->radius = r;
 
 	this->network = new int[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)*NCELL]();
 	get_cell_ids(netdir);
@@ -51,7 +50,7 @@ Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 
 	fill_vels(veldir);
 	get_mus(veldir);
-	//initial_particles();
+	initial_particles();
 
 }
 #endif
@@ -129,6 +128,7 @@ void Grid::fill_vels_year(int year,std::string veldir){
 
 void Grid::initial_particles(){
 
+	#ifdef CIRCULAR
 	std::uniform_real_distribution<float> unif(0, 1);
 	#pragma omp parallel for
 	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
@@ -138,6 +138,36 @@ void Grid::initial_particles(){
 			this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i*DTSTART,vels,mus);
 		}
 	}
+	#endif
+
+	#ifdef NETWORK
+	int Nsub = sqrt(NPART);
+	float ds = M_PI_2/NSIDE;
+	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+		int j = 0;
+
+			for(int m=1;m <= Nsub;m++){
+				float y_k = this->pos0.getY() - ds/2.0 + m*ds/Nsub/2.0;
+				for(int n=1;n <= m;n++){
+					float x_k = this->pos0.getX() - ((m-1.0)/2.0)*ds/Nsub + (n-1)*ds/Nsub;
+					this->particles[i*NPART+j].setPos(Vec(x_k,y_k));
+					this->particles[i*NPART+j].xy_to_lonmu();
+					j++;
+				}
+			}
+
+			for(int m=1;m <= (Nsub-1);m++){
+				float y_k = this->pos0.getY() + ds/2.0 - m*ds/Nsub/2.0;
+				for(int n=1;n <= m;n++){
+					float x_k = this->pos0.getX() - ((m-1.0)/2.0)*ds/Nsub + (n-1)*ds/Nsub;
+					this->particles[i*NPART+j].setPos(Vec(x_k,y_k));
+					this->particles[i*NPART+j].xy_to_lonmu();
+					j++;
+				}
+			}
+
+	}
+	#endif
 
 }
 

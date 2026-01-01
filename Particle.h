@@ -21,6 +21,10 @@ class Particle{
 		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int t);
 		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t);
 
+		#ifdef NETWORK
+			float xy_to_lon();
+		#endif
+
 	public:
 		Particle();
 		Particle(float x0, float y0, int t0);
@@ -39,6 +43,10 @@ class Particle{
 		void make_trajectory(Vec* velgrid, float* mus);
 
 		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* velgrid,float* mus);
+
+		#ifdef NETWORK
+			void xy_to_lonmu();
+		#endif
 
 };
 

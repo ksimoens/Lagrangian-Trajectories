@@ -5,7 +5,7 @@ OPT += -DNYEARSTART=1
 #Number of days between starting moments.
 OPT += -DDTSTART=15
 #Number of particles.
-OPT += -DNPART=10
+OPT += -DNPART=16
 #Starting year.
 OPT += -DYSTART=1993
 #Diffusion constant.
@@ -28,6 +28,7 @@ OPT += -DMUMAX=1.7290554
 OPT += -DNETWORK
 #Network properties.
 OPT += -DNCELL=385
+OPT += -DNSIDE=64
 
 #Variables for transformation.
 OPT += -DA=6378.140

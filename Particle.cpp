@@ -89,6 +89,25 @@ void Particle::trans_pos(){
 
 }
 
+#ifdef NETWORK
+void Particle::xy_to_lonmu(){
+
+	Vec newpos = Vec(0.0,0.0);
+
+	if(abs(this->pos.getY()) >= M_PI_4){
+		newpos.setX( (this->pos.getX() - (abs(this->pos.getY())-M_PI_4)/(abs(this->pos.getY())-M_PI_2)*(std::fmod(this->pos.getX(),M_PI_2)-M_PI_4) - M_PI ) );
+		newpos.setY( mu_lat(M_PI_2 - acos((1.0-1.0/3.0*pow(2.0-4.0*abs(this->pos.getY()/M_PI),2))*sgn(this->pos.getY()))) );
+	} else{
+		newpos.setX(this->pos.getX() - M_PI);
+		newpos.setY( mu_lat(M_PI_2 - acos(8.0/3.0/M_PI*this->pos.getY())) );
+	}
+
+	this->pos.setX(newpos.getX());
+	this->pos.setY(newpos.getY());
+
+}
+#endif
+
 int Particle::get_lon_index(Vec pos0){
 
 	int i = 0;
