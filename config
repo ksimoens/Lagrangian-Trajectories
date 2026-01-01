@@ -1,5 +1,6 @@
-x0 -6373.40246859828
-y0 3261.14168076952
+x0 2.12302941043373
+y0 0.809941856003619
 srf 10000
-write /media/kobe/Windows/spectrum/output/sim_sargasso_vel_49
+write /media/kobe/Windows/spectrum/network/test_sim
 velocity /media/kobe/shared/spectrum/vel_transf
+network ../healpix/test_grid

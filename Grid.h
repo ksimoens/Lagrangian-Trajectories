@@ -14,6 +14,8 @@ class Grid{
 		float* mus;
 		Vec pos0;
 		float radius;
+		int* network;
+		std::set<int> IDvec;
 		
 		void fill_vels(std::string veldir);
 		void initial_particles();
@@ -22,12 +24,20 @@ class Grid{
 		void get_mus(std::string veldir);
 		//void get_time_slice(int t);
 
+		#ifdef NETWORK
+			void get_cell_ids(std::string netdir);
+			void initial_network();
+		#endif
+
 	public:
 		Grid(float x0,float y0,std::string veldir);
 		#ifdef CIRCULAR
 			Grid(float x0,float y0,float r,std::string veldir);
 		#endif
-		~Grid(){delete[] vels; delete[] mus;vels=0; mus=0;};
+		#ifdef NETWORK
+			Grid(float x0,float y0,float r,std::string veldir,std::string netdir);
+		#endif
+		~Grid(){delete[] vels; delete[] mus; delete[] network; vels=0; mus=0; network=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};

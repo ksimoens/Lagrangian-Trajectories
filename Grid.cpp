@@ -10,6 +10,7 @@ Grid::Grid(float x0,float y0,std::string veldir){
 	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = 0.0;
+	this->network = 0;
 
 	//fill_vels();
 	initial_particles();
@@ -25,10 +26,32 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = r;
+	this->network = 0;
 
 	fill_vels(veldir);
 	get_mus(veldir);
 	initial_particles();
+
+}
+#endif
+
+#ifdef NETWORK
+Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
+
+	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	//velslice = new Vec[NLON*NLAT*2]();
+	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)]();
+	this->mus = new float[NLAT]();
+	this->pos0 = Vec(x0,y0);
+	this->radius = r;
+
+	this->network = new int[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)*NCELL]();
+	get_cell_ids(netdir);
+	initial_network();
+
+	fill_vels(veldir);
+	get_mus(veldir);
+	//initial_particles();
 
 }
 #endif
@@ -133,6 +156,41 @@ void Grid::get_mus(std::string veldir){
 	}
 
 }
+
+#ifdef NETWORK
+
+void Grid::get_cell_ids(std::string netdir){
+
+	std::fstream fin;
+
+	fin.open(netdir+".csv",std::ios::in);
+
+	std::string temp,line,word;
+
+	std::getline(fin,line);
+
+	for(int i = 0;i<NCELL;i++){
+
+		std::getline(fin,line);
+		std::stringstream s(line);
+		std::getline(s,word,',');
+		this->IDvec.insert(std::stoi(word));
+
+	}
+
+}
+
+void Grid::initial_network(){
+
+	for(int i=0;i < NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)*NCELL;i++){
+
+		this->network[i] = 999999;
+
+	}
+
+}
+
+#endif
 
 void Grid::do_simulation(){
 

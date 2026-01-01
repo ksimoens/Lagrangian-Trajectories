@@ -1,11 +1,11 @@
 #Total number of years to integrate.
-OPT += -DNYEAR=5
+OPT += -DNYEAR=1
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
-OPT += -DDTSTART=20
+OPT += -DDTSTART=15
 #Number of particles.
-OPT += -DNPART=1000
+OPT += -DNPART=10
 #Starting year.
 OPT += -DYSTART=1993
 #Diffusion constant.
@@ -22,9 +22,12 @@ OPT += -DLONRES=0.004363323
 OPT += -DMUMIN=0.1776416
 OPT += -DMUMAX=1.7290554
 #Particle properties.
-OPT += -DSTOREPOS
-OPT += -DSTOREVEL
-OPT += -DCIRCULAR
+#OPT += -DSTOREPOS
+#OPT += -DSTOREVEL
+#OPT += -DCIRCULAR
+OPT += -DNETWORK
+#Network properties.
+OPT += -DNCELL=385
 
 #Variables for transformation.
 OPT += -DA=6378.140

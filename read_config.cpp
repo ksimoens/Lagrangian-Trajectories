@@ -41,6 +41,9 @@ struct config_params read_config(){
 		} else if(params[0] == "velocity"){
 			myparams.v = params[1];
 			std::replace(myparams.v.begin(),myparams.v.end(),'%',' ');
+		} else if(params[0] == "network"){
+			myparams.net = params[1];
+			std::replace(myparams.net.begin(),myparams.net.end(),'%',' ');
 		}
 
 	}
