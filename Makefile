@@ -1,5 +1,5 @@
 #Total number of years to integrate.
-OPT += -DNYEAR=1
+OPT += -DNYEAR=5
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
@@ -29,6 +29,10 @@ OPT += -DNETWORK
 #Network properties.
 OPT += -DNCELL=385
 OPT += -DNSIDE=64
+OPT += -DNETLONMIN=-1.155371
+OPT += -DNETLONMAX=-0.4154256
+OPT += -DNETLATMIN=0.4493061
+OPT += -DNETLATMAX=0.9618006
 
 #Variables for transformation.
 OPT += -DA=6378.140

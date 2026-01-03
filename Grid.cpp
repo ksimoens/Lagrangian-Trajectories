@@ -4,9 +4,10 @@
 
 Grid::Grid(float x0,float y0,std::string veldir){
 
+	this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
-	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)];
+	this->particles = new Particle[NPART*Nstart];
 	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = 0.0;
@@ -20,9 +21,10 @@ Grid::Grid(float x0,float y0,std::string veldir){
 #ifdef CIRCULAR
 Grid::Grid(float x0,float y0,float r,std::string veldir){
 
+	this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
-	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)]();
+	this->particles = new Particle[NPART*Nstart]();
 	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = r;
@@ -38,13 +40,14 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 #ifdef NETWORK
 Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 
+	this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
-	this->particles = new Particle[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)]();
+	this->particles = new Particle[NPART*Nstart]();
 	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 
-	this->network = new int[NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)*NCELL]();
+	this->network = new int[NPART*this->Nstart*NCELL]();
 	get_cell_ids(netdir);
 	initial_network();
 
@@ -131,7 +134,7 @@ void Grid::initial_particles(){
 	#ifdef CIRCULAR
 	std::uniform_real_distribution<float> unif(0, 1);
 	#pragma omp parallel for
-	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+	for(size_t i=0;i<this->Nstart;i++){
 		for(int j=0;j<NPART;j++){
 			float r1 = unif(rng);
 			float r2 = unif(rng);
@@ -143,7 +146,7 @@ void Grid::initial_particles(){
 	#ifdef NETWORK
 	int Nsub = sqrt(NPART);
 	float ds = M_PI_2/NSIDE;
-	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+	for(int i=0;i<this->Nstart;i++){
 		int j = 0;
 
 			for(int m=1;m <= Nsub;m++){
@@ -212,7 +215,7 @@ void Grid::get_cell_ids(std::string netdir){
 
 void Grid::initial_network(){
 
-	for(int i=0;i < NPART*(calc_ndays(NYEARSTART+YSTART)/DTSTART)*NCELL;i++){
+	for(int i=0;i < NPART*this->Nstart*NCELL;i++){
 
 		this->network[i] = 999999;
 
@@ -225,17 +228,22 @@ void Grid::initial_network(){
 void Grid::do_simulation(){
 
 	#pragma omp parallel for num_threads(4)
-	for(size_t i=0;i<(calc_ndays(NYEARSTART+YSTART)/DTSTART);i++){
+	for(int i=0;i<this->Nstart;i++){
+		std::cout << i << std::endl;
 		for(int j=0;j<NPART;j++){
-			this->particles[j+NPART*i].make_trajectory(vels,mus);
+			#ifdef NETWORK
+				this->particles[j+NPART*i].make_trajectory(this->vels,this->mus,this->IDvec,this->network,this->Nstart,i,j);
+			#else
+				this->particles[j+NPART*i].make_trajectory(this->vels,this->mus);
+			#endif
 		}
 	}
 
 }
 
+#ifndef NETWORK
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
-	auto t_start = std::chrono::high_resolution_clock::now();
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
 	data.putAtt("title","Lagrangian simulation Northern Atlantic Ocean");
@@ -253,6 +261,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 
 	#if defined(STOREPOS) || defined(STOREVEL)
+		auto t_start = std::chrono::high_resolution_clock::now();
 		data.putAtt("simulation type","full trajectory");
 
 		netCDF::NcDim startDim = data.addDim("start", calc_ndays(NYEARSTART+YSTART)/DTSTART);
@@ -419,3 +428,100 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	#endif
 
 }
+
+#else
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Lagrangian network simulation Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+	Particle p = Particle(this->pos0.getX(),this->pos0.getY(),0);
+	p.xy_to_lonmu();
+	//data.putAtt("cell ID",)
+	data.putAtt("cell central position","("+
+					std::to_string(p.getPos().getX()/M_PI*180)+" ; "+
+					std::to_string(p.lat_mu(p.getPos().getY())/M_PI*180)+") degrees");
+	
+	data.putAtt("initial condition","healpix");
+
+	data.putAtt("simulation type","network");
+
+	netCDF::NcDim startDim = data.addDim("start", this->Nstart);
+	netCDF::NcDim partDim = data.addDim("particles", NPART);
+	netCDF::NcDim cellDim = data.addDim("cells", NCELL);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(cellDim);
+	dimVector.push_back(startDim);
+	dimVector.push_back(partDim);
+
+	std::vector<netCDF::NcDim> dimVector_start;
+	dimVector_start.push_back(startDim);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(this->Nstart);
+	countp.push_back(NPART);
+
+	std::vector<size_t> startp_start,countp_start;
+	startp_start.push_back(0);
+	countp_start.push_back(this->Nstart);
+	netCDF::NcVar startVar = data.addVar("start", netCDF::ncInt, dimVector_start);
+	startVar.putAtt("units", "days");
+	int vec_start[this->Nstart];
+	for(int i=0;i < this->Nstart;i++){
+		vec_start[i] = i*DTSTART;
+	}
+	startVar.putVar(startp_start,countp_start,vec_start);
+
+	netCDF::NcVar tminVar = data.addVar("tmin", netCDF::ncInt, dimVector);
+	tminVar.putAtt("units", "days");
+	int vec_part_tmin[this->Nstart][NPART];
+
+	//#pragma omp parallel for num_threads(4)
+	for(size_t c=0;c < NCELL;c++){
+		
+		startp[0]=c;
+
+			for(int s=0;s<this->Nstart;s++){
+
+				for(size_t k=0;k < NPART;k++){
+
+					vec_part_tmin[s][k] = this->network[c+NCELL*(k+s*NPART)];
+					
+				}				
+			}
+
+		
+		tminVar.putVar(startp,countp,vec_part_tmin);
+					
+	}
+
+	data.putAtt("length of trajectories",std::to_string(NYEAR)+" years");
+	std::string start_str;
+	if(NYEARSTART == 1){
+		start_str = " year";
+	} else{
+		start_str = " years";
+	}
+	data.putAtt("length of initialisation",strname(NYEARSTART)+start_str);
+	data.putAtt("time between releases",std::to_string(DTSTART)+" days");
+	data.putAtt("number of particles per release",strname(NPART));
+	data.putAtt("starting date","01-01-"+std::to_string(YSTART));
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+
+}
+#endif

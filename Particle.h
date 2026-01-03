@@ -22,7 +22,19 @@ class Particle{
 		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t);
 
 		#ifdef NETWORK
+			struct hlp_coord{
+				int basehp=-1;
+				int x=-1;
+				int y=-1;
+			};
 			float xy_to_lon();
+			void update_network(int t,std::set<int> IDvec,int* network,int Nstart,int i,int j);
+			int get_network_id(std::set<int> IDvec);
+			float lonmu_to_x();
+			float lonmu_to_y();
+			float lonmu_to_z();
+			void get_hlp_coord(int* basehp,int* x,int* y,float vx,float vy,float vz);
+			int get_pixel_id(hlp_coord hlp);
 		#endif
 
 	public:
@@ -40,7 +52,11 @@ class Particle{
 
 		void RK_move(Vec* velgrid, float* mus, int t);
 
-		void make_trajectory(Vec* velgrid, float* mus);
+		#ifdef NETWORK
+			void make_trajectory(Vec* velgrid, float* mus, std::set<int> IDvec, int* network, int Nstart, int i, int j);
+		#else
+			void make_trajectory(Vec* velgrid, float* mus);
+		#endif
 
 		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* velgrid,float* mus);
 

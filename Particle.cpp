@@ -21,7 +21,9 @@ Particle::Particle(){
 Particle::Particle(float x0,float y0,int t0){
 	this->pos = Vec(x0,y0);
 	this->starttime = t0;
+	#ifndef NETWORK
 	trans_pos();
+	#endif
 	#ifdef STOREPOS
 		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0].setX(this->pos.getX());
@@ -259,6 +261,227 @@ void Particle::RK_move(Vec* velgrid,float* mus,int t){
 
 } 
 
+#ifdef NETWORK
+float Particle::lonmu_to_x(){
+
+	return(cos(this->pos.getX()+M_PI)*cos(lat_mu(this->pos.getY())));
+
+}
+
+float Particle::lonmu_to_y(){
+
+	return(sin(this->pos.getX()+M_PI)*cos(lat_mu(this->pos.getY())));
+
+}
+
+float Particle::lonmu_to_z(){
+
+	return(sin(lat_mu(this->pos.getY())));
+
+}
+
+void Particle::get_hlp_coord(int* basehp,int* x,int* y,float vx,float vy,float vz){
+
+	float phi, phi_t, sector, xx, yy;
+	int offset, column;
+	float TwTh = 2.0/3.0;
+	float root3 = sqrt(3.0);
+
+	phi = atan2(vy,vx);
+	if(phi < 0){
+		phi += 2.0*M_PI;
+	}
+	phi_t = fmod(phi,M_PI_2);
+
+	// definitely polar 
+	if((vz >= TwTh) || (vz <= -TwTh)){
+
+		bool north;
+		float coz;
+		float kx,ky;
+
+		// north
+		if(vz > 0){
+			north = true;
+		// south
+		}else{
+			north = false;
+			vz *= -1.0;
+		}
+
+		coz = std::hypot(vx,vy);
+
+		kx = (coz / sqrt(1.0 + vz)) * root3 * fabs(NSIDE * (2.0 * phi_t - M_PI) / M_PI);
+		ky = (coz / sqrt(1.0 + vz)) * root3 * NSIDE * 2.0 * phi_t / M_PI;
+
+		if (north) {
+            xx = NSIDE - kx;
+            yy = NSIDE - ky;
+        } else {
+            xx = ky;
+            yy = kx;
+        }
+
+        *x = std::min(NSIDE-1, (int)floor(xx));
+        *y = std::min(NSIDE-1, (int)floor(yy));
+
+        sector = (phi - phi_t) / (M_PI_2);
+        offset = (int)round(sector);
+        offset = ((offset % 4) + 4) % 4;
+        column = offset;
+
+        if(north){
+            *basehp = column;
+        } else {
+            *basehp = 8 + column;
+        }
+
+    // polar or equatorial
+	} else{
+
+		float zunits, phiunits, u1, u2;
+
+		zunits = (vz + TwTh) / (4.0 / 3.0);
+        phiunits = phi_t / M_PI_2;
+
+		u1 = zunits + phiunits;
+		u2 = zunits - phiunits + 1.0;
+
+		// x is the northeast direction, y is the northwest.
+		xx = u1 * NSIDE;
+		yy = u2 * NSIDE;
+
+		sector = (phi - phi_t) / (M_PI_2);
+        offset = (int)round(sector);
+        offset = ((offset % 4) + 4) % 4;
+
+        // we're looking at a square in z,phi space with an X dividing it.
+        // we want to know which section we're in.
+        // xx ranges from 0 in the bottom-left to 2Nside in the top-right.
+        // yy ranges from 0 in the bottom-right to 2Nside in the top-left.
+        // (of the phi,z unit box)
+        if (xx >= NSIDE) {
+            xx -= NSIDE;
+            // north polar
+            if (yy >= NSIDE) {
+                yy -= NSIDE;
+                *basehp = offset;
+            // right equatorial
+            } else {
+                *basehp = ((offset + 1) % 4) + 4;
+            }
+        } else {
+        	// left equatorial
+            if (yy >= NSIDE) {
+                yy -= NSIDE;
+                *basehp = offset + 4;
+            // south polar
+            } else {
+                *basehp = 8 + offset;
+            }
+        }
+
+		*x = std::max(0, std::min(NSIDE-1, (int)floor(xx)));
+        *y = std::max(0, std::min(NSIDE-1, (int)floor(yy)));
+
+	}
+
+}
+
+int Particle::get_pixel_id(hlp_coord hlp){
+
+	int frow, F1, v, ring, index;
+
+	frow = hlp.basehp / 4;
+	F1 = frow + 2;
+	v = hlp.x + hlp.y;
+	ring = F1*NSIDE - v - 1;
+
+	// north polar
+	if (ring <= NSIDE) {
+
+        index = (NSIDE - 1 - hlp.y);
+        // offset from the other big healpixes
+        index += ((hlp.basehp % 4) * ring);
+        // offset from the other rings
+        index += (int)ring*(ring-1)*2;
+
+       // south polar
+    } else if (ring >= (int)3*NSIDE) {
+
+        // Here I first flip everything so that we label the pixels
+        // at zero starting in the southeast corner, increasing to the
+        // west and north, then subtract that from the total number of
+        // healpixels.
+        int ri = (int)4*NSIDE - ring;
+        index = (ri-1) - hlp.x;
+        // big healpixes
+        index += ((3-(hlp.basehp % 4)) * ri);
+        // other rings
+        index += (int)ri*(ri-1)*2;
+        // flip!
+        index = 12*(int)NSIDE*NSIDE - 1 - index;
+
+    // equatorial
+    } else {
+        int s, F2, h;
+        s = (ring - NSIDE) % 2;
+        F2 = 2*((int)hlp.basehp % 4) - (frow % 2) + 1;
+        h = hlp.x - hlp.y;
+
+        index = (F2 * NSIDE + h + s) / 2;
+        // offset from the north polar region:
+        index += (int)NSIDE * (NSIDE - 1) * 2;
+        // offset within the equatorial region:
+        index += (int)NSIDE * 4 * (ring - NSIDE);
+        // handle healpix #4 wrap-around
+        if ((hlp.basehp == 4) && (hlp.y > hlp.x)){
+        	index += (4 * NSIDE - 1);
+        }
+    }
+
+    return(index);
+
+}
+
+int Particle::get_network_id(std::set<int> IDvec){
+
+	float vx,vy,vz;
+	vx = lonmu_to_x();
+	vy = lonmu_to_y();
+	vz = lonmu_to_z();
+
+	hlp_coord hlp;
+	get_hlp_coord(&hlp.basehp,&hlp.x,&hlp.y,vx,vy,vz);
+
+	int id;
+	id = get_pixel_id(hlp);
+
+	return(std::distance(IDvec.begin(),IDvec.find(id)));
+
+}
+
+void Particle::update_network(int t,std::set<int> IDvec,int* network,int Nstart,int i,int j){
+
+	int i_id = get_network_id(IDvec);
+	if(i_id != NCELL){
+		network[i_id+NCELL*(j+i*NPART)] = std::min(network[i_id+NCELL*(j+i*NPART)],t);
+	}
+
+}
+
+void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* network,int Nstart,int i,int j){
+
+	for(int t=0;t<NYEAR*365;t++){
+		RK_move(velgrid,mus,t+this->starttime);
+		if( (this->pos.getX() > NETLONMIN) & (this->pos.getX() < NETLONMAX) & (this->pos.getY() > NETLATMIN) & (this->pos.getY() < NETLATMAX)){
+			update_network(t+1,IDvec,network,Nstart,i,j);
+		}
+	}
+
+}
+
+#else
 void Particle::make_trajectory(Vec* velgrid,float* mus){
 
 	for(int t=0;t<NYEAR*365;t++){
@@ -273,3 +496,4 @@ void Particle::make_trajectory(Vec* velgrid,float* mus){
 	#endif
 
 }
+#endif

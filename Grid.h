@@ -15,6 +15,7 @@ class Grid{
 		Vec pos0;
 		float radius;
 		int* network;
+		int Nstart;
 		std::set<int> IDvec;
 		
 		void fill_vels(std::string veldir);
