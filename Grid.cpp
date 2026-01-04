@@ -155,6 +155,7 @@ void Grid::initial_particles(){
 					float x_k = this->pos0.getX() - ((m-1.0)/2.0)*ds/Nsub + (n-1)*ds/Nsub;
 					this->particles[i*NPART+j].setPos(Vec(x_k,y_k));
 					this->particles[i*NPART+j].xy_to_lonmu();
+					this->particles[i*NPART+j].set_starttime(i*DTSTART);
 					j++;
 				}
 			}
@@ -165,6 +166,7 @@ void Grid::initial_particles(){
 					float x_k = this->pos0.getX() - ((m-1.0)/2.0)*ds/Nsub + (n-1)*ds/Nsub;
 					this->particles[i*NPART+j].setPos(Vec(x_k,y_k));
 					this->particles[i*NPART+j].xy_to_lonmu();
+					this->particles[i*NPART+j].set_starttime(i*DTSTART);
 					j++;
 				}
 			}
