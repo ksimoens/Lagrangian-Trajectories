@@ -220,7 +220,7 @@ ds <- pi/Nside/2
 df_grid <- read.csv("../../healpix/test_grid.csv")
 sf_grid <- st_read("../../healpix/test_grid/test_grid.shp")
 
-nc_vel <- nc_open("vel_average.nc")
+nc_vel <- nc_open("../../plots/vel_average.nc")
 
 vec_lon <- nc_vel %>% ncvar_get("lon")
 vec_lat <- nc_vel %>% ncvar_get("lat")
@@ -264,3 +264,5 @@ p <- ggplot() +
 		theme(axis.title=element_blank(),legend.position="top")
 
 p %>% ggsave("map_flow.png",.,device="png",width=15,height=10,units="cm")
+
+df_grid %>% select(ID,flow) %>% write.csv("test_grid_flow.csv",row.names=FALSE)
