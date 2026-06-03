@@ -132,13 +132,21 @@ void Grid::fill_vels_year(int year,std::string veldir){
 void Grid::initial_particles(){
 
 	#ifdef CIRCULAR
-	std::uniform_real_distribution<float> unif(0, 1);
-	#pragma omp parallel for
-	for(size_t i=0;i<this->Nstart;i++){
-		for(int j=0;j<NPART;j++){
-			float r1 = unif(rng);
-			float r2 = unif(rng);
-			this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i*DTSTART,vels,mus);
+
+	#pragma omp parallel 
+	{
+		std::random_device rd;
+		std::seed_seq seed{static_cast<int>(rd()), omp_get_thread_num()};
+		std::mt19937_64 rng(seed);
+		std::uniform_real_distribution<float> unif(0, 1);
+
+		#pragma omp for
+		for(size_t i=0;i<this->Nstart;i++){
+			for(int j=0;j<NPART;j++){
+				float r1 = unif(rng);
+				float r2 = unif(rng);
+				this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i*DTSTART,vels,mus);
+			}
 		}
 	}
 	#endif
@@ -229,18 +237,25 @@ void Grid::initial_network(){
 
 void Grid::do_simulation(){
 
-	#pragma omp parallel for num_threads(4)
-	for(int i=0;i<this->Nstart;i++){
-		std::cout << i << std::endl;
-		for(int j=0;j<NPART;j++){
-			#ifdef NETWORK
-				this->particles[j+NPART*i].make_trajectory(this->vels,this->mus,this->IDvec,this->network,this->Nstart,i,j);
-			#else
-				this->particles[j+NPART*i].make_trajectory(this->vels,this->mus);
-			#endif
+	#pragma omp parallel
+	{
+
+		std::random_device rd;
+		std::seed_seq seed{static_cast<int>(rd()), omp_get_thread_num()};
+		std::mt19937_64 rng(seed);
+
+		#pragma omp for
+		for(int i=0;i<this->Nstart;i++){
+			std::cout << i << std::endl;
+			for(int j=0;j<NPART;j++){
+				#ifdef NETWORK
+					this->particles[j+NPART*i].make_trajectory(this->vels,this->mus,this->IDvec,this->network,this->Nstart,i,j,rng);
+				#else
+					this->particles[j+NPART*i].make_trajectory(this->vels,this->mus,rng);
+				#endif
+			}
 		}
 	}
-
 }
 
 #ifndef NETWORK

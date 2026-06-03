@@ -46,7 +46,7 @@ To check the hdf5 version, use:
 ```
 $ dpkg -l | grep hdf5
 ```  
-However, it is possible that the library is still not found by Cmake because the INCLUDE variables are not automatically set correctly. To remedy this, run the `cmake` command setting the INCLUDE variables manually:  
+However, the hdf5 library could still be unrecognised by Cmake because the INCLUDE variables are not automatically set correctly. To remedy this, run the `cmake` command setting the INCLUDE variables manually:  
 ```
 $ cmake .. -DCMAKE_C_FLAGS="-I /usr/include/hdf5/serial/" -DCMAKE_PREFIX_PATH=/usr
 ```  
@@ -58,7 +58,7 @@ $ make
 $ ctest  
 $ make install
 ```  
-Finally, in order to be able to link the netCDF library in your C++ script, run the [ldconfig](https://www.quora.com/What-does-ldconfig-do) command:  
+Finally, in order to be able to link the netCDF library in your C++ scripts, run the [ldconfig](https://www.quora.com/What-does-ldconfig-do) command:  
 ```
 $ sudo ldconfig
 ```

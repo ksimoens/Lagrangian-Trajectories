@@ -221,13 +221,9 @@ float Particle::lat_mu(float mu){
 
 
 
-void Particle::RK_move(Vec* velgrid,float* mus,int t){
+void Particle::RK_move(Vec* velgrid,float* mus,int t,Vec dW){
 
 	float K = sqrt(2*D);
-	std::normal_distribution<float> norm(0.0,sqrt(DT));
-	Vec dW;
-	dW.setX(norm(rng));
-	dW.setY(norm(rng));
 
 	Vec v1 = interpol(this->pos,velgrid,mus,0,t);
 	#ifdef STOREVEL
@@ -470,10 +466,15 @@ void Particle::update_network(int t,std::set<int> IDvec,int* network,int Nstart,
 
 }
 
-void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* network,int Nstart,int i,int j){
+void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* network,int Nstart,int i,int j,std::mt19937_64 &rng){
+
+	Vec dW;
+	std::normal_distribution<float> norm(0.0,sqrt(DT));
 
 	for(int t=0;t<NYEAR*365;t++){
-		RK_move(velgrid,mus,t+this->starttime);
+		dW.setX(norm(rng));
+		dW.setY(norm(rng));
+		RK_move(velgrid,mus,t+this->starttime,dW);
 		if( (this->pos.getX() > NETLONMIN) & (this->pos.getX() < NETLONMAX) & (this->pos.getY() > NETLATMIN) & (this->pos.getY() < NETLATMAX)){
 			update_network(t+1,IDvec,network,Nstart,i,j);
 		}
@@ -482,10 +483,15 @@ void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* 
 }
 
 #else
-void Particle::make_trajectory(Vec* velgrid,float* mus){
+void Particle::make_trajectory(Vec* velgrid,float* mus,std::mt19937_64 &rng){
+
+	Vec dW;
+	std::normal_distribution<float> norm(0.0,sqrt(DT));
 
 	for(int t=0;t<NYEAR*365;t++){
-		RK_move(velgrid,mus,t+this->starttime);
+		dW.setX(norm(rng));
+		dW.setY(norm(rng));
+		RK_move(velgrid,mus,t+this->starttime,dW);
 
 	}
 

@@ -50,12 +50,12 @@ class Particle{
 		void set_starttime(int t0){this->starttime=t0;};
 		float lat_mu(float mu);
 
-		void RK_move(Vec* velgrid, float* mus, int t);
+		void RK_move(Vec* velgrid, float* mus, int t,Vec dW);
 
 		#ifdef NETWORK
-			void make_trajectory(Vec* velgrid, float* mus, std::set<int> IDvec, int* network, int Nstart, int i, int j);
+			void make_trajectory(Vec* velgrid, float* mus, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);
 		#else
-			void make_trajectory(Vec* velgrid, float* mus);
+			void make_trajectory(Vec* velgrid, float* mus,std::mt19937_64 &rng);
 		#endif
 
 		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* velgrid,float* mus);
