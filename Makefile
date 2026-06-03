@@ -5,7 +5,7 @@ OPT += -DNYEARSTART=1
 #Number of days between starting moments.
 OPT += -DDTSTART=15
 #Number of particles.
-OPT += -DNPART=100
+OPT += -DNPART=2
 #Starting year.
 OPT += -DYSTART=1993
 #Diffusion constant.
@@ -19,8 +19,9 @@ OPT += -DNLAT=240
 OPT += -DLONMIN=-1.568614665
 OPT += -DLONMAX=0.259617726
 OPT += -DLONRES=0.004363323
-OPT += -DMUMIN=0.1776416
-OPT += -DMUMAX=1.7290554
+OPT += -DLATMIN=0.1767146
+OPT += -DLATMAX=1.219549
+OPT += -DLATRES=0.004363323
 #Particle properties.
 OPT += -DSTOREPOS
 #OPT += -DSTOREVEL

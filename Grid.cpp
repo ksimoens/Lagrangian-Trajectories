@@ -8,14 +8,12 @@ Grid::Grid(float x0,float y0,std::string veldir){
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart];
-	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = 0.0;
 	this->network = 0;
 
 	//fill_vels();
 	initial_particles();
-	get_mus(veldir);
 }
 
 #ifdef CIRCULAR
@@ -25,13 +23,11 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
-	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = r;
 	this->network = 0;
 
 	fill_vels(veldir);
-	get_mus(veldir);
 	initial_particles();
 
 }
@@ -44,7 +40,6 @@ Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
-	this->mus = new float[NLAT]();
 	this->pos0 = Vec(x0,y0);
 
 	this->network = new int[NPART*this->Nstart*NCELL]();
@@ -52,7 +47,6 @@ Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 	initial_network();
 
 	fill_vels(veldir);
-	get_mus(veldir);
 	initial_particles();
 
 }
@@ -145,7 +139,7 @@ void Grid::initial_particles(){
 			for(int j=0;j<NPART;j++){
 				float r1 = unif(rng);
 				float r2 = unif(rng);
-				this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i*DTSTART,vels,mus);
+				this->particles[i*NPART+j].get_initial_pos(pos0,r1,r2,radius,i*DTSTART);
 			}
 		}
 	}
@@ -184,7 +178,7 @@ void Grid::initial_particles(){
 
 }
 
-void Grid::get_mus(std::string veldir){
+/*void Grid::get_mus(std::string veldir){
 
 	float mus_in[NLAT];
 
@@ -198,7 +192,7 @@ void Grid::get_mus(std::string veldir){
 		this->mus[i] = mus_in[i];
 	}
 
-}
+}*/
 
 #ifdef NETWORK
 
@@ -249,9 +243,9 @@ void Grid::do_simulation(){
 			std::cout << i << std::endl;
 			for(int j=0;j<NPART;j++){
 				#ifdef NETWORK
-					this->particles[j+NPART*i].make_trajectory(this->vels,this->mus,this->IDvec,this->network,this->Nstart,i,j,rng);
+					this->particles[j+NPART*i].make_trajectory(this->vels,this->IDvec,this->network,this->Nstart,i,j,rng);
 				#else
-					this->particles[j+NPART*i].make_trajectory(this->vels,this->mus,rng);
+					this->particles[j+NPART*i].make_trajectory(this->vels,rng);
 				#endif
 			}
 		}

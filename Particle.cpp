@@ -39,7 +39,7 @@ Particle::Particle(float x0,float y0,int t0){
 	#endif
 }
 
-void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* vels,float* mus){
+void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 
 	#ifdef CIRCULAR
 		float r_rand = r0*sqrt(r1);
@@ -48,12 +48,6 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* v
 		this->pos.setY(pos0.getY()+r_rand*sin(h_rand));
 		trans_pos();
 		this->starttime = t0;
-	#endif
-
-	#ifdef STOREVEL
-	/*	Vec vel_inter = interpol(this->pos,vels,mus,0,this->starttime);
-		this->path_vel[0].setX(vel_inter.getX());
-		this->path_vel[0].setY(vel_inter.getY());*/
 	#endif
 
 	#ifdef STOREPOS
@@ -124,29 +118,26 @@ int Particle::get_lon_index(Vec pos0){
 
 }
 
-int Particle::get_lat_index(Vec pos0, float* mus){
+int Particle::get_lat_index(Vec pos0){
 
 	int i = 0;
 
-	if(pos0.getY() < MUMIN || pos0.getY() > MUMAX){
+	float lat = lat_mu(pos0.getY());
+
+	if(lat < LATMIN || lat > LATMAX){
 		i = -1;
 	} else{
-		for(int j=0;j < NLAT;j++){
-			if(pos0.getY() < mus[j]){
-				i = j-1;
-				break;
-			}
-		}
+		i = floor((lat-LATMIN)/LATRES);
 	}
 
 	return(i);
 
 }
 
-Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t){
+Vec Particle::interpol(Vec pos0,Vec* velgrid,int k,int t){
 	
 	int i = get_lon_index(pos0);
-	int j = get_lat_index(pos0,mus);
+	int j = get_lat_index(pos0);
 	Vec intervel;
 
 	if(i == -1 || j == -1){
@@ -158,8 +149,8 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t){
 	Vec edges[4];
 	float x1 = LONMIN+LONRES*i;
 	float x2 = x1+LONRES;
-	float y1 = mus[j];
-	float y2 = mus[j+1];
+	float y1 = mu_lat(LATMIN+LATRES*j);
+	float y2 = mu_lat(y1+LATRES);
 
 	edges[0] = velgrid[i+NLON*(j+(t+k)*NLAT)];
 	edges[1] = velgrid[i+NLON*(j+1+(t+k)*NLAT)];
@@ -176,10 +167,10 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t){
 
 }
 
-Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int t){
+Vec Particle::interpol(Vec pos0,Vec* velgrid,int t){
 
 	int i = get_lon_index(pos0);
-	int j = get_lat_index(pos0,mus);
+	int j = get_lat_index(pos0);
 	Vec intervel;
 
 	if(i == -1 || j == -1){
@@ -191,8 +182,8 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,float* mus,int t){
 	Vec edges[4];
 	float x1 = LONMIN+LONRES*i;
 	float x2 = x1+LONRES;
-	float y1 = mus[j];
-	float y2 = mus[j+1];
+	float y1 = mu_lat(LATMIN+LATRES*j);
+	float y2 = mu_lat(y1+LATRES);
 
 	edges[0] = (velgrid[i+NLON*(j+NLAT*t)] +
 					velgrid[i+NLON*(j+NLAT*(t+1))])/2;
@@ -221,26 +212,26 @@ float Particle::lat_mu(float mu){
 
 
 
-void Particle::RK_move(Vec* velgrid,float* mus,int t,Vec dW){
+void Particle::RK_move(Vec* velgrid,int t,Vec dW){
 
 	float K = sqrt(2*D);
 
-	Vec v1 = interpol(this->pos,velgrid,mus,0,t);
+	Vec v1 = interpol(this->pos,velgrid,0,t);
 	#ifdef STOREVEL
 		path_vel[t-this->starttime] = v1;
 	#endif
 	float num_v1 = 1.0/R/cos(lat_mu(this->pos.getY()));
 	Vec p2 = this->pos + (DT/2.0*v1 + K/2.0*dW)*num_v1;
 
-	Vec v2 = interpol(p2,velgrid,mus,t);
+	Vec v2 = interpol(p2,velgrid,t);
 	float num_v2 = 1.0/R/cos(lat_mu(p2.getY()));
 	Vec p3 = this->pos + (DT/2.0*v2 + K/2.0*dW)*num_v2;
 
-	Vec v3 = interpol(p3,velgrid,mus,t);
+	Vec v3 = interpol(p3,velgrid,t);
 	float num_v3 = 1.0/R/cos(lat_mu(p3.getY()));
 	Vec p4 = this->pos + (DT*v3 + K/2.0*dW)*num_v3;
 
-	Vec v4 = interpol(p4,velgrid,mus,1,t);
+	Vec v4 = interpol(p4,velgrid,1,t);
 	float num_v4 = 1.0/R/cos(lat_mu(p4.getY()));
 
 	this->pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
@@ -466,7 +457,7 @@ void Particle::update_network(int t,std::set<int> IDvec,int* network,int Nstart,
 
 }
 
-void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* network,int Nstart,int i,int j,std::mt19937_64 &rng){
+void Particle::make_trajectory(Vec* velgrid,std::set<int> IDvec,int* network,int Nstart,int i,int j,std::mt19937_64 &rng){
 
 	Vec dW;
 	std::normal_distribution<float> norm(0.0,sqrt(DT));
@@ -474,7 +465,7 @@ void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* 
 	for(int t=0;t<NYEAR*365;t++){
 		dW.setX(norm(rng));
 		dW.setY(norm(rng));
-		RK_move(velgrid,mus,t+this->starttime,dW);
+		RK_move(velgrid,t+this->starttime,dW);
 		if( (this->pos.getX() > NETLONMIN) & (this->pos.getX() < NETLONMAX) & (this->pos.getY() > NETLATMIN) & (this->pos.getY() < NETLATMAX)){
 			update_network(t+1,IDvec,network,Nstart,i,j);
 		}
@@ -483,7 +474,7 @@ void Particle::make_trajectory(Vec* velgrid,float* mus,std::set<int> IDvec,int* 
 }
 
 #else
-void Particle::make_trajectory(Vec* velgrid,float* mus,std::mt19937_64 &rng){
+void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 
 	Vec dW;
 	std::normal_distribution<float> norm(0.0,sqrt(DT));
@@ -491,12 +482,12 @@ void Particle::make_trajectory(Vec* velgrid,float* mus,std::mt19937_64 &rng){
 	for(int t=0;t<NYEAR*365;t++){
 		dW.setX(norm(rng));
 		dW.setY(norm(rng));
-		RK_move(velgrid,mus,t+this->starttime,dW);
+		RK_move(velgrid,t+this->starttime,dW);
 
 	}
 
 	#ifdef STOREVEL
-		Vec last_vel = interpol(this->pos,velgrid,mus,0,NYEAR*365+this->starttime);
+		Vec last_vel = interpol(this->pos,velgrid,0,NYEAR*365+this->starttime);
 		this->path_vel[NYEAR*365].setX(last_vel.getX());
 		this->path_vel[NYEAR*365].setY(last_vel.getY());
 	#endif

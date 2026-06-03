@@ -17,9 +17,9 @@ class Particle{
 		float fun_lat(float mu);
 		float get_mu(float y0);
 		int get_lon_index(Vec pos0);
-		int get_lat_index(Vec pos0, float* mus);
-		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int t);
-		Vec interpol(Vec pos0,Vec* velgrid,float* mus,int k,int t);
+		int get_lat_index(Vec pos0);
+		Vec interpol(Vec pos0,Vec* velgrid,int t);
+		Vec interpol(Vec pos0,Vec* velgrid,int k,int t);
 
 		#ifdef NETWORK
 			struct hlp_coord{
@@ -50,15 +50,15 @@ class Particle{
 		void set_starttime(int t0){this->starttime=t0;};
 		float lat_mu(float mu);
 
-		void RK_move(Vec* velgrid, float* mus, int t,Vec dW);
+		void RK_move(Vec* velgrid, int t,Vec dW);
 
 		#ifdef NETWORK
-			void make_trajectory(Vec* velgrid, float* mus, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);
+			void make_trajectory(Vec* velgrid, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);
 		#else
-			void make_trajectory(Vec* velgrid, float* mus,std::mt19937_64 &rng);
+			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng);
 		#endif
 
-		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0,Vec* velgrid,float* mus);
+		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0);
 
 		#ifdef NETWORK
 			void xy_to_lonmu();
