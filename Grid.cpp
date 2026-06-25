@@ -4,23 +4,33 @@
 
 Grid::Grid(float x0,float y0,std::string veldir){
 
-	this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
-	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elifdef HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+	#endif
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart];
 	this->pos0 = Vec(x0,y0);
 	this->radius = 0.0;
 	this->network = 0;
 
-	//fill_vels();
+	fill_vels(veldir);
 	initial_particles();
 }
 
 #ifdef CIRCULAR
 Grid::Grid(float x0,float y0,float r,std::string veldir){
 
-	this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
-	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elifdef HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+	#endif
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
 	this->pos0 = Vec(x0,y0);
@@ -36,8 +46,13 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 #ifdef NETWORK
 Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 
-	this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
-	this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elifdef HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+	#endif
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
 	this->pos0 = Vec(x0,y0);
@@ -52,6 +67,7 @@ Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 }
 #endif
 
+#ifdef DAY
 size_t Grid::calc_ndays(int current_year){
 
 	size_t nday = 0;
@@ -68,15 +84,44 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
+#elifdef HOUR
+size_t Grid::calc_nhours(int current_month){
+
+	size_t nhour = 0;
+	for(int month=YSTART;month<current_month+1;month++){
+
+		if((month == 1) || (month == 3) || (month == 5) ||
+			(month == 7) || (month == 8) || (month == 10) ||
+			(month == 12)){
+			nhour += 24*31;
+		} else if((month != 2)){
+			nhour += 24*30;
+		} else if((month == 2)){
+			nhour += 24*28;
+		}
+
+	}
+
+	return(nhour);
+
+}
+#endif
 
 void Grid::fill_vels(std::string veldir){
 
-	for(int i=0;i<NYEAR+NYEARSTART;i++){
-		fill_vels_year(i,veldir);
-	}
+	#ifdef DAY
+		for(int i=0;i<NYEAR+NYEARSTART;i++){
+			fill_vels_year(i,veldir);
+		}
+	#elif HOUR
+		for(int i=YSTART;i<NYEAR+1;i++){
+			fill_vels_month(i,veldir);
+		}
+	#endif
 
 }
 
+#ifdef DAY
 void Grid::fill_vels_year(int year,std::string veldir){
 
 	size_t nday;
@@ -122,6 +167,59 @@ void Grid::fill_vels_year(int year,std::string veldir){
 
 
 }
+#elif HOUR
+void Grid::fill_vels_month(int month,std::string veldir){
+
+	size_t nhour;
+	size_t nhour_before = calc_nhours(month-1);
+
+	if((month == 1) || (month == 3) || (month == 5) ||
+		(month == 7) || (month == 8) || (month == 10) ||
+		(month == 12)){
+		nhour = 24*31;
+	} else if((month != 2)){
+		nhour = 24*30;
+	} else if((month == 2)){
+		nhour = 24*28;
+	}
+
+	float grid_time_x[NLAT][NLON];
+	float grid_time_y[NLAT][NLON];
+	std::string mstr = std::to_string(month);
+	size_t n_zero = 2;
+	mstr = std::string(n_zero - std::min(n_zero, mstr.length()), '0') + mstr;
+	
+	netCDF::NcFile dataFile(veldir+"/vel_"+mstr+".nc", netCDF::NcFile::read);
+	netCDF::NcVar velxVar;
+	velxVar = dataFile.getVar("u");
+	netCDF::NcVar velyVar;
+	velyVar = dataFile.getVar("v");
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(NLAT);
+	countp.push_back(NLON);
+
+	for (size_t hour = 0; hour < nhour; hour++){
+		// Read the data one record at a time.
+		startp[0]=hour;
+		velxVar.getVar(startp,countp,grid_time_x);
+		velyVar.getVar(startp,countp,grid_time_y);
+     
+		for(int ilon=0;ilon<NLON;ilon++){
+			for(int ilat=0;ilat<NLAT;ilat++){
+				this->vels[ilon+NLON*(ilat+NLAT*(hour+nhour_before))] = 
+					Vec(grid_time_x[ilat][ilon],grid_time_y[ilat][ilon]);
+			}
+		}
+     
+	}
+
+}
+#endif
 
 void Grid::initial_particles(){
 
@@ -251,7 +349,7 @@ void Grid::do_simulation(){
 		}
 	}
 }
-
+/*
 #ifndef NETWORK
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
@@ -536,3 +634,4 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 }
 #endif
+*/
