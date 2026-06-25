@@ -27,7 +27,7 @@ int main(){
 	}
 
 	grid.write_simulation(myparams.w,dt_init,dt_sim);
-	
+
 	return 0;
 
 }

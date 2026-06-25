@@ -4,6 +4,15 @@
 Particle::Particle(){
 	this->pos = Vec(0.0,0.0);
 	this->starttime = 0;
+	this->velmask = new int[4];
+	this->vecnum = new float[4];
+	this->vecintervel = new Vec[4];
+	for(int i=0;i<4;i++){
+		this->velmask[i] = 0;
+		this->vecnum[i] = 0.0;
+		this->vecintervel[i] = Vec(0.0,0.0);
+
+	}
 	#ifdef STOREPOS
 		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0] = this->pos;
@@ -21,6 +30,15 @@ Particle::Particle(){
 Particle::Particle(float x0,float y0,int t0){
 	this->pos = Vec(x0,y0);
 	this->starttime = t0;
+	this->velmask = new int[4];
+	this->vecnum = new float[4];
+	this->vecintervel = new Vec[4];
+	for(int i=0;i<4;i++){
+		this->velmask[i] = 0;
+		this->vecnum[i] = 0.0;
+		this->vecintervel[i] = Vec(0.0,0.0);
+
+	}
 	#ifndef NETWORK
 	trans_pos();
 	#endif
@@ -106,45 +124,35 @@ void Particle::xy_to_lonmu(){
 
 int Particle::get_lon_index(Vec pos0){
 
-	int i = 0;
+	int mask_max = (pos0.getX() > LONMAX) ? 1 : 0;
+	int mask_min = (pos0.getX() < LONMIN) ? 1 : 0;
 
-	if(pos0.getX() < LONMIN || pos0.getX() > LONMAX){
-		i = -1;
-	} else{
-		i = floor((pos0.getX()-LONMIN)/LONRES);
-	}
-
-	return(i);
+	return(floor((pos0.getX()-LONMIN)/LONRES)*(1-mask_max)*(1-mask_min) +
+			(-1)*mask_max + (-1)*mask_min);
 
 }
 
-int Particle::get_lat_index(Vec pos0){
+int Particle::get_lat_index(float lat){
 
-	int i = 0;
+	int mask_max = (lat > LATMAX) ? 1 : 0;
+	int mask_min = (lat < LATMIN) ? 1 : 0;
 
-	float lat = lat_mu(pos0.getY());
-
-	if(lat < LATMIN || lat > LATMAX){
-		i = -1;
-	} else{
-		i = floor((lat-LATMIN)/LATRES);
-	}
-
-	return(i);
+	return(floor((lat-LATMIN)/LATRES)*(1-mask_max)*(1-mask_min) +
+			(-1)*mask_max + (-1)*mask_min);
 
 }
 
-Vec Particle::interpol(Vec pos0,Vec* velgrid,int k,int t){
+Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 	
 	int i = get_lon_index(pos0);
-	int j = get_lat_index(pos0);
+	int j = get_lat_index(lat);
 	Vec intervel;
 
-	if(i == -1 || j == -1){
-		intervel.setX(-999.0);
-		intervel.setY(-999.0);
-		return(intervel);
-	}
+	int mask_lon = (i == -1) ? 1 : 0;
+	int mask_mu = (j == -1) ? 1 : 0;
+
+	i = (1-mask_lon)*i;
+	j = (1-mask_mu)*j;
 
 	Vec edges[4];
 	float x1 = LONMIN+LONRES*i;
@@ -156,28 +164,41 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,int k,int t){
 	edges[1] = velgrid[i+NLON*(j+1+(t+k)*NLAT)];
 	edges[2] = velgrid[(i+1)+NLON*(j+1+(t+k)*NLAT)];
 	edges[3] = velgrid[(i+1)+NLON*(j+(t+k)*NLAT)];
-	
+
+	int vec_mask[4];
+	vec_mask[0] = (edges[0].getX() < -100.0) ? 1 : 0;
+	vec_mask[1] = (edges[1].getX() < -100.0) ? 1 : 0;
+	vec_mask[2] = (edges[2].getX() < -100.0) ? 1 : 0;
+	vec_mask[3] = (edges[3].getX() < -100.0) ? 1 : 0;
+
 	intervel = 1.0/LONRES/(y2-y1)*
 				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
 					edges[1]*(x2-pos0.getX())*(pos0.getY()-y1) +
 					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
 					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()));
 
+	this->velmask[0] += vec_mask[0];
+	this->velmask[1] += vec_mask[1];
+	this->velmask[2] += vec_mask[2];
+	this->velmask[3] += vec_mask[3];
+
 	return(intervel);
 
 }
 
-Vec Particle::interpol(Vec pos0,Vec* velgrid,int t){
+Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int i = get_lon_index(pos0);
-	int j = get_lat_index(pos0);
-	Vec intervel;
+	int j = get_lat_index(lat);
 
-	if(i == -1 || j == -1){
-		intervel.setX(-999.0);
-		intervel.setY(-999.0);
-		return(intervel);
-	}
+	Vec intervel;
+	int mask_all = (pos0.getX() < -100.0) ? 1 : 0;
+
+	int mask_lon = (i == -1) ? 1 : 0;
+	int mask_mu = (j == -1) ? 1 : 0;
+
+	i = (1-mask_lon)*i;
+	j = (1-mask_mu)*j;
 
 	Vec edges[4];
 	float x1 = LONMIN+LONRES*i;
@@ -193,12 +214,32 @@ Vec Particle::interpol(Vec pos0,Vec* velgrid,int t){
 					velgrid[(i+1)+NLON*(j+1+NLAT*(t+1))])/2;
 	edges[3] = (velgrid[(i+1)+NLON*(j+NLAT*t)] + 
 					velgrid[(i+1)+NLON*(j+NLAT*(t+1))])/2;
+	
+	int vec_mask[4];
+	vec_mask[0] = (edges[0].getX() < -100.0) ? 1 : 0;
+	vec_mask[1] = (edges[1].getX() < -100.0) ? 1 : 0;
+	vec_mask[2] = (edges[2].getX() < -100.0) ? 1 : 0;
+	vec_mask[3] = (edges[3].getX() < -100.0) ? 1 : 0;
 
 	intervel = 1.0/LONRES/(y2-y1)*
 				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
 					edges[1]*(x2-pos0.getX())*(pos0.getY()-y1) +
 					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
 					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()));
+
+	for(int i=0;i<4;i++){
+		mask_all += vec_mask[i];
+		this->velmask[i] += vec_mask[i];
+	}
+
+	mask_all = (mask_all == 0) ? 0 : 1;
+
+	intervel = (1-mask_all)/LONRES/(y2-y1)*
+				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
+					edges[1]*(x2-pos0.getX())*(pos0.getY()-y1) +
+					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
+					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()))+
+				Vec(-999.0,-999.0)*mask_all;
 
 	return(intervel);
 
@@ -210,37 +251,96 @@ float Particle::lat_mu(float mu){
 
 }
 
+void Particle::update_pos(float K,Vec dW){
+
+	Vec dpos = DT/6.0*(this->vecintervel[0]*this->vecnum[0] + 
+						2.0*this->vecintervel[1]*this->vecnum[1] + 
+						2.0*this->vecintervel[2]*this->vecnum[2] +  
+						this->vecintervel[3]*this->vecnum[3]) +
+			K*dW/6.0*(this->vecnum[0] + 2.0*this->vecnum[1] + 
+						2.0*this->vecnum[2] + this->vecnum[3]);
+
+	int mask_all = 0;
+	for(int i=0;i<4;i++){
+		//this->velmask[i] = (this->velmask[i] == 0) ? 0 : 1;
+		mask_all += this->velmask[i];
+	}
+
+	mask_all = (mask_all == 0) ? 0 : 1;
+
+	/*int mask_all = this->velmask[0]*this->velmask[1]*this->velmask[2]*(1-this->velmask[3]) + 
+					this->velmask[1]*this->velmask[2]*this->velmask[3]*(1-this->velmask[0]) +
+					this->velmask[2]*this->velmask[3]*this->velmask[0]*(1-this->velmask[1]) +
+					this->velmask[3]*this->velmask[0]*this->velmask[1]*(1-this->velmask[2]) +
+					this->velmask[0]*this->velmask[1]*this->velmask[2]*this->velmask[3];
+
+	int ulon = (dpos.getX() > 0.0) ? 1 : 0;
+	int vmu = (dpos.getY() > 0.0) ? 1 : 0;
+
+	int mask_mu = (1 - 2*this->velmask[1]*vmu*(1-this->velmask[0])*(1-this->velmask[2]) 
+					-2*this->velmask[2]*vmu*(1-this->velmask[1])*(1-this->velmask[3])
+					-2*this->velmask[3]*(1-vmu)*(1-this->velmask[0])*(1-this->velmask[2])
+					-2*this->velmask[0]*(1-vmu)*(1-this->velmask[3])*(1-this->velmask[1])
+					-2*this->velmask[1]*this->velmask[2]*vmu
+					-2*this->velmask[0]*this->velmask[3]*(1-vmu)
+					);
+
+	int mask_lon = (1 - 2*this->velmask[1]*(1-ulon)*(1-this->velmask[0])*(1-this->velmask[2]) 
+					-2*this->velmask[2]*ulon*(1-this->velmask[1])*(1-this->velmask[3])
+					-2*this->velmask[3]*ulon*(1-this->velmask[0])*(1-this->velmask[2])
+					-2*this->velmask[0]*(1-ulon)*(1-this->velmask[3])*(1-this->velmask[1])
+					-2*this->velmask[2]*this->velmask[3]*ulon
+					-2*this->velmask[0]*this->velmask[1]*(1-ulon)
+					);
+	*/
+
+	int pmask = (this->pos.getX() > -100.0) ? 1 : 0;
+	this->pos.setX( pmask*(1-mask_all)*(this->pos.getX() + dpos.getX()) +
+				(mask_all*pmask + (1-mask_all)*(1-pmask)+(mask_all)*(1-pmask))*-999.0 );
+	this->pos.setY( pmask*(1-mask_all)*(this->pos.getY() + dpos.getY()) +
+				(mask_all*pmask + (1-mask_all)*(1-pmask)+(mask_all)*(1-pmask))*-999.0 );
+
+	for(int i=0;i<4;i++){
+		this->velmask[i] = 0;
+	}
+
+}
+
 
 
 void Particle::RK_move(Vec* velgrid,int t,Vec dW){
 
+	float lat;
 	float K = sqrt(2*D);
+	float pmask = (this->pos.getX() < -100.0) ? 1 : 0;
+	int mask = 0;
 
-	Vec v1 = interpol(this->pos,velgrid,0,t);
+	lat = (1-pmask)*lat_mu(this->pos.getY())+pmask;
+	this->vecintervel[0] = interpol(this->pos,lat,velgrid,0,t);
 	#ifdef STOREVEL
-		path_vel[t-this->starttime] = v1;
+		path_vel[t-this->starttime] = this->vecintervel[0];
 	#endif
-	float num_v1 = 1.0/R/cos(lat_mu(this->pos.getY()));
-	Vec p2 = this->pos + (DT/2.0*v1 + K/2.0*dW)*num_v1;
+	this->vecnum[0] = 1.0/R/cos(lat);
+	mask = (this->vecintervel[0].getX() < -100.0) ? 1 : 0;
+	Vec p2 = this->pos + (1-mask)*(1-pmask)*(DT/2.0*this->vecintervel[0] + K/2.0*dW)*this->vecnum[0];
 
-	Vec v2 = interpol(p2,velgrid,t);
-	float num_v2 = 1.0/R/cos(lat_mu(p2.getY()));
-	Vec p3 = this->pos + (DT/2.0*v2 + K/2.0*dW)*num_v2;
+	lat = (1-pmask)*lat_mu(p2.getY())+pmask;
+	this->vecintervel[1] = interpol(p2,lat,velgrid,t);
+	this->vecnum[1] = 1.0/R/cos(lat);
+	mask = (this->vecintervel[1].getX() < -100.0) ? 1 : 0;
+	Vec p3 = this->pos + (1-mask)*(1-pmask)*(DT/2.0*this->vecintervel[1] + K/2.0*dW)*this->vecnum[1];
 
-	Vec v3 = interpol(p3,velgrid,t);
-	float num_v3 = 1.0/R/cos(lat_mu(p3.getY()));
-	Vec p4 = this->pos + (DT*v3 + K/2.0*dW)*num_v3;
+	lat = (1-pmask)*lat_mu(p3.getY())+pmask;
+	this->vecintervel[2] = interpol(p3,lat,velgrid,t);
+	this->vecnum[2] = 1.0/R/cos(lat);
+	mask = (this->vecintervel[2].getX() < -100.0) ? 1 : 0;
+	Vec p4 = this->pos + (1-mask)*(1-pmask)*(DT*this->vecintervel[2] + K/2.0*dW)*this->vecnum[2];
 
-	Vec v4 = interpol(p4,velgrid,1,t);
-	float num_v4 = 1.0/R/cos(lat_mu(p4.getY()));
+	lat = (1-pmask)*lat_mu(p4.getY())+pmask;
+	this->vecintervel[3] = interpol(p4,lat,velgrid,1,t);
+	this->vecnum[3] = 1.0/R/cos(lat);
 
-	this->pos += DT/6.0*(v1*num_v1 + 2.0*v2*num_v2 + 2.0*v3*num_v3 + v4*num_v4) +
-			K*dW/6.0*(num_v1 + 2.0*num_v2 + 2.0*num_v3 + num_v4);	
-
-	if(v1.getX() < -100.0 || v2.getX() < -100.0 || v3.getX() < -100.0 || v4.getX() < -100.0){
-		this->pos.setX(-999.0);
-		this->pos.setY(-999.0);
-	}
+	update_pos(K,dW);
 	
 	#ifdef STOREPOS
 		this->path_pos[t-this->starttime+1] = this->pos;

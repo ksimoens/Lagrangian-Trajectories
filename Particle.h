@@ -10,6 +10,9 @@ class Particle{
 		Vec pos{};
 		Vec* path_pos{};
 		Vec* path_vel{};
+		int* velmask{};
+		float* vecnum{};
+		Vec* vecintervel{};
 		int starttime{};
 
 		void trans_pos();
@@ -17,9 +20,10 @@ class Particle{
 		float fun_lat(float mu);
 		float get_mu(float y0);
 		int get_lon_index(Vec pos0);
-		int get_lat_index(Vec pos0);
-		Vec interpol(Vec pos0,Vec* velgrid,int t);
-		Vec interpol(Vec pos0,Vec* velgrid,int k,int t);
+		int get_lat_index(float lat);
+		Vec interpol(Vec pos0,float lat,Vec* velgrid,int t);
+		Vec interpol(Vec pos0,float lat,Vec* velgrid,int k,int t);
+		void update_pos(float K,Vec dW);
 
 		#ifdef NETWORK
 			struct hlp_coord{
@@ -40,7 +44,9 @@ class Particle{
 	public:
 		Particle();
 		Particle(float x0, float y0, int t0);
-		~Particle(){delete[] path_vel;path_vel=0;delete[] path_pos;path_pos=0;};
+		~Particle(){delete[] path_vel;path_vel=0;delete[] path_pos;path_pos=0;
+					delete[] velmask;velmask=0;delete[] vecnum;vecnum=0;
+					delete[] vecintervel;vecintervel=0;};
 
 		Vec getPos(){return pos;};
 		Vec* getPathPos(){return path_pos;};

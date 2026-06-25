@@ -11,7 +11,6 @@ class Grid{
 		Vec* vels;
 		//Vec* velslice;
 		Particle* particles;
-		float* mus;
 		Vec pos0;
 		float radius;
 		int* network;
@@ -22,7 +21,7 @@ class Grid{
 		void initial_particles();
 		size_t calc_ndays(int current_year);
 		void fill_vels_year(int year,std::string veldir);
-		void get_mus(std::string veldir);
+		//void get_mus(std::string veldir);
 		//void get_time_slice(int t);
 
 		#ifdef NETWORK
@@ -38,7 +37,7 @@ class Grid{
 		#ifdef NETWORK
 			Grid(float x0,float y0,float r,std::string veldir,std::string netdir);
 		#endif
-		~Grid(){delete[] vels; delete[] mus; delete[] network; vels=0; mus=0; network=0;};
+		~Grid(){delete[] vels; delete[] network; delete[] particles; particles = 0; vels=0; network=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};

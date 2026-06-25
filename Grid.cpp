@@ -130,7 +130,7 @@ void Grid::initial_particles(){
 	#pragma omp parallel 
 	{
 		std::random_device rd;
-		std::seed_seq seed{static_cast<int>(rd()), omp_get_thread_num()};
+		std::seed_seq seed{static_cast<int>(rd()),omp_get_thread_num()};
 		std::mt19937_64 rng(seed);
 		std::uniform_real_distribution<float> unif(0, 1);
 
@@ -231,14 +231,14 @@ void Grid::initial_network(){
 
 void Grid::do_simulation(){
 
-	#pragma omp parallel
+	//#pragma omp parallel
 	{
 
 		std::random_device rd;
-		std::seed_seq seed{static_cast<int>(rd()), omp_get_thread_num()};
+		std::seed_seq seed{static_cast<int>(rd()),2};//omp_get_thread_num()};
 		std::mt19937_64 rng(seed);
 
-		#pragma omp for
+		//#pragma omp for
 		for(int i=0;i<this->Nstart;i++){
 			std::cout << i << std::endl;
 			for(int j=0;j<NPART;j++){
