@@ -7,15 +7,22 @@ Particle::Particle(){
 	this->velmask = new int[4];
 	this->vecnum = new float[4];
 	this->vecintervel = new Vec[4];
+	this->posintermed = new Vec[3];
 	for(int i=0;i<4;i++){
 		this->velmask[i] = 0;
 		this->vecnum[i] = 0.0;
 		this->vecintervel[i] = Vec(0.0,0.0);
 
 	}
+	for(int i=0;i<3;i++){
+		this->posintermed[i] = Vec(0.0,0.0);
+	}
 	#ifdef STOREPOS
 		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0] = this->pos;
+	#elif LYAPUNOV
+		this->path_pos = new Vec[NYEAR*30*24+1];
+		this->path_pos[NYEAR*30*24] = this->pos;
 	#else
 		this->path_pos = 0;
 	#endif
@@ -33,11 +40,15 @@ Particle::Particle(float x0,float y0,int t0){
 	this->velmask = new int[4];
 	this->vecnum = new float[4];
 	this->vecintervel = new Vec[4];
+	this->posintermed = new Vec[3];
 	for(int i=0;i<4;i++){
 		this->velmask[i] = 0;
 		this->vecnum[i] = 0.0;
-		this->vecintervel[i] = Vec(0.0,0.0);
+		this->posintermed[i] = Vec(0.0,0.0);
 
+	}
+	for(int i=0;i<3;i++){
+		this->posintermed[i] = Vec(0.0,0.0);
 	}
 	#ifndef NETWORK
 	trans_pos();
@@ -46,6 +57,10 @@ Particle::Particle(float x0,float y0,int t0){
 		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0].setX(this->pos.getX());
 		this->path_pos[0].setY(this->pos.getY());
+	#elif LYAPUNOV
+		this->path_pos = new Vec[NYEAR*30*24+1];
+		this->path_pos[NYEAR*30*24].setX(this->pos.getX());
+		this->path_pos[NYEAR*30*24].setY(this->pos.getY());
 	#else
 		this->path_pos = 0;
 	#endif
@@ -160,10 +175,16 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 	float y1 = mu_lat(LATMIN+LATRES*j);
 	float y2 = mu_lat(y1+LATRES);
 
-	edges[0] = velgrid[i+NLON*(j+(t+k)*NLAT)];
-	edges[1] = velgrid[i+NLON*(j+1+(t+k)*NLAT)];
-	edges[2] = velgrid[(i+1)+NLON*(j+1+(t+k)*NLAT)];
-	edges[3] = velgrid[(i+1)+NLON*(j+(t+k)*NLAT)];
+	int n = 1;
+
+	#ifdef LYAPUNOV
+		n = -1;
+	#endif
+
+	edges[0] = velgrid[i+NLON*(j+(t+n*k)*NLAT)];
+	edges[1] = velgrid[i+NLON*(j+1+(t+n*k)*NLAT)];
+	edges[2] = velgrid[(i+1)+NLON*(j+1+(t+n*k)*NLAT)];
+	edges[3] = velgrid[(i+1)+NLON*(j+(t+n*k)*NLAT)];
 
 	int vec_mask[4];
 	vec_mask[0] = (edges[0].getX() < -100.0) ? 1 : 0;
@@ -206,14 +227,20 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 	float y1 = mu_lat(LATMIN+LATRES*j);
 	float y2 = mu_lat(y1+LATRES);
 
+	int n = 1;
+
+	#ifdef LYAPUNOV
+		n = -1;
+	#endif
+
 	edges[0] = (velgrid[i+NLON*(j+NLAT*t)] +
-					velgrid[i+NLON*(j+NLAT*(t+1))])/2;
+					velgrid[i+NLON*(j+NLAT*(t+n))])/2;
 	edges[1] = (velgrid[i+NLON*((j+1)+NLAT*t)] + 
-					velgrid[i+NLON*(j+1+NLAT*(t+1))])/2;
+					velgrid[i+NLON*(j+1+NLAT*(t+n))])/2;
 	edges[2] = (velgrid[(i+1)+NLON*(j+1+NLAT*t)] +
-					velgrid[(i+1)+NLON*(j+1+NLAT*(t+1))])/2;
+					velgrid[(i+1)+NLON*(j+1+NLAT*(t+n))])/2;
 	edges[3] = (velgrid[(i+1)+NLON*(j+NLAT*t)] + 
-					velgrid[(i+1)+NLON*(j+NLAT*(t+1))])/2;
+					velgrid[(i+1)+NLON*(j+NLAT*(t+n))])/2;
 	
 	int vec_mask[4];
 	vec_mask[0] = (edges[0].getX() < -100.0) ? 1 : 0;
@@ -315,35 +342,37 @@ void Particle::RK_move(Vec* velgrid,int t,Vec dW){
 	float pmask = (this->pos.getX() < -100.0) ? 1 : 0;
 	int mask = 0;
 
-	lat = (1-pmask)*lat_mu(this->pos.getY())+pmask;
+	lat = (1-pmask)*lat_mu(this->pos.getY());
 	this->vecintervel[0] = interpol(this->pos,lat,velgrid,0,t);
 	#ifdef STOREVEL
 		path_vel[t-this->starttime] = this->vecintervel[0];
 	#endif
 	this->vecnum[0] = 1.0/R/cos(lat);
 	mask = (this->vecintervel[0].getX() < -100.0) ? 1 : 0;
-	Vec p2 = this->pos + (1-mask)*(1-pmask)*(DT/2.0*this->vecintervel[0] + K/2.0*dW)*this->vecnum[0];
+	this->posintermed[0] = this->pos + (1-mask)*(1-pmask)*(DT/2.0*this->vecintervel[0] + K/2.0*dW)*this->vecnum[0];
 
-	lat = (1-pmask)*lat_mu(p2.getY())+pmask;
-	this->vecintervel[1] = interpol(p2,lat,velgrid,t);
+	lat = (1-pmask)*lat_mu(this->posintermed[0].getY());
+	this->vecintervel[1] = interpol(this->posintermed[0],lat,velgrid,t);
 	this->vecnum[1] = 1.0/R/cos(lat);
 	mask = (this->vecintervel[1].getX() < -100.0) ? 1 : 0;
-	Vec p3 = this->pos + (1-mask)*(1-pmask)*(DT/2.0*this->vecintervel[1] + K/2.0*dW)*this->vecnum[1];
+	this->posintermed[1] = this->pos + (1-mask)*(1-pmask)*(DT/2.0*this->vecintervel[1] + K/2.0*dW)*this->vecnum[1];
 
-	lat = (1-pmask)*lat_mu(p3.getY())+pmask;
-	this->vecintervel[2] = interpol(p3,lat,velgrid,t);
+	lat = (1-pmask)*lat_mu(this->posintermed[1].getY());
+	this->vecintervel[2] = interpol(this->posintermed[1],lat,velgrid,t);
 	this->vecnum[2] = 1.0/R/cos(lat);
 	mask = (this->vecintervel[2].getX() < -100.0) ? 1 : 0;
-	Vec p4 = this->pos + (1-mask)*(1-pmask)*(DT*this->vecintervel[2] + K/2.0*dW)*this->vecnum[2];
+	this->posintermed[2] = this->pos + (1-mask)*(1-pmask)*(DT*this->vecintervel[2] + K/2.0*dW)*this->vecnum[2];
 
-	lat = (1-pmask)*lat_mu(p4.getY())+pmask;
-	this->vecintervel[3] = interpol(p4,lat,velgrid,1,t);
+	lat = (1-pmask)*lat_mu(this->posintermed[2].getY());
+	this->vecintervel[3] = interpol(this->posintermed[2],lat,velgrid,1,t);
 	this->vecnum[3] = 1.0/R/cos(lat);
 
 	update_pos(K,dW);
 	
 	#ifdef STOREPOS
 		this->path_pos[t-this->starttime+1] = this->pos;
+	#elif LYAPUNOV
+		this->path_pos[t-1] = this->pos;
 	#endif 
 
 } 
@@ -577,14 +606,22 @@ void Particle::make_trajectory(Vec* velgrid,std::set<int> IDvec,int* network,int
 void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 
 	Vec dW;
-	std::normal_distribution<float> norm(0.0,sqrt(DT));
+	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
 
-	for(int t=0;t<NYEAR*365;t++){
-		dW.setX(norm(rng));
-		dW.setY(norm(rng));
-		RK_move(velgrid,t+this->starttime,dW);
+	#ifdef LYAPUNOV
+		for(int t=NYEAR*30*24-1;t > 0;t--){
+			dW.setX(norm(rng));
+			dW.setY(norm(rng));
+			RK_move(velgrid,t,dW);
+		}
+	#else
+		for(int t=0;t<NYEAR*365;t++){
+			dW.setX(norm(rng));
+			dW.setY(norm(rng));
+			RK_move(velgrid,t+this->starttime,dW);
 
-	}
+		}
+	#endif
 
 	#ifdef STOREVEL
 		Vec last_vel = interpol(this->pos,velgrid,0,NYEAR*365+this->starttime);

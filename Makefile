@@ -11,7 +11,7 @@ OPT += -DYSTART=1
 #Diffusion constant.
 OPT += -DD=100.0
 #Timestep (seconds)
-OPT += -DDT=86400.0
+OPT += -DDT=-3600.0
 #Shape of velocity grid.
 OPT += -DNLON=420
 OPT += -DNLAT=240

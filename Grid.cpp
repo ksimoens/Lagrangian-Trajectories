@@ -58,7 +58,7 @@ Grid::Grid(std::string veldir){
 		this->Nstart = 1;
 		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
 	#endif
-	this->particles = new Particle[NLON*NLAT]();
+	this->particles = new Particle[(NLON-2)*(NLAT-2)]();
 	this->network = 0;
 
 	fill_vels(veldir);
@@ -276,16 +276,22 @@ void Grid::initial_particles(){
 
 	#ifdef LYAPUNOV
 
-	#pragma omp parallel 
+	//#pragma omp parallel 
 	{
-		#pragma omp for
-		for(int ilat=0;ilat<NLAT;ilat++){
-			for(int ilon=0;ilon<NLON;ilon++){
-				this->particles[ilon+NLON*ilat].setPos(
+		//#pragma omp for
+		int k = 0;
+		for(int ilat=1;ilat<(NLAT-1);ilat++){
+			for(int ilon=1;ilon<(NLON-1);ilon++){
+				if(k==173){
+					std::cout << "ok" << std::endl;
+				}
+				this->particles[(ilon-1)+NLON*(ilat-1)].setPos(
 						Vec(ilon*LONRES+LONMIN,mu_lat(ilat*LATRES+LATMIN)));
+				k++;
 			}
 		}
 	}
+	std::cout << this->particles[173].getPos().getX() << std::endl;
 	#endif
 
 }
@@ -351,16 +357,23 @@ void Grid::do_simulation(){
 		std::mt19937_64 rng(seed);
 
 		//#pragma omp for
-		for(int i=0;i<this->Nstart;i++){
-			std::cout << i << std::endl;
-			for(int j=0;j<NPART;j++){
-				#ifdef NETWORK
-					this->particles[j+NPART*i].make_trajectory(this->vels,this->IDvec,this->network,this->Nstart,i,j,rng);
-				#else
-					this->particles[j+NPART*i].make_trajectory(this->vels,rng);
-				#endif
+		#ifndef LYAPUNOV
+			for(int i=0;i<this->Nstart;i++){
+				std::cout << i << std::endl;
+				for(int j=0;j<NPART;j++){
+					#ifdef NETWORK
+						this->particles[j+NPART*i].make_trajectory(this->vels,this->IDvec,this->network,this->Nstart,i,j,rng);
+					#else
+						this->particles[j+NPART*i].make_trajectory(this->vels,rng);
+					#endif
+				}
 			}
-		}
+		#else
+			for(int j=0;j<((NLON-2)*(NLAT-2));j++){
+					std::cout << j << std::endl;
+					this->particles[j].make_trajectory(this->vels,rng);
+			}
+		#endif
 	}
 }
 /*

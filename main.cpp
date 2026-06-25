@@ -14,7 +14,7 @@ int main(){
 	#elif LYAPUNOV
 		Grid grid = Grid(myparams.v);
 	#endif
-	/*
+	
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_init = std::chrono::duration<double, std::milli>(t_end-t_start).count();
 	
@@ -22,7 +22,7 @@ int main(){
 	grid.do_simulation();
 	t_end = std::chrono::high_resolution_clock::now();
 	double dt_sim = std::chrono::duration<double, std::milli>(t_end-t_start).count();
-
+	/*
 	std::ifstream file((myparams.w+".nc").c_str());
 	if(file.good()){
 		std::remove((myparams.w+".nc").c_str());

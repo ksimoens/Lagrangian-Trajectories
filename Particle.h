@@ -13,6 +13,7 @@ class Particle{
 		int* velmask{};
 		float* vecnum{};
 		Vec* vecintervel{};
+		Vec* posintermed{};
 		int starttime{};
 
 		void trans_pos();
@@ -46,7 +47,8 @@ class Particle{
 		Particle(float x0, float y0, int t0);
 		~Particle(){delete[] path_vel;path_vel=0;delete[] path_pos;path_pos=0;
 					delete[] velmask;velmask=0;delete[] vecnum;vecnum=0;
-					delete[] vecintervel;vecintervel=0;};
+					delete[] vecintervel;vecintervel=0;
+					delete[] posintermed;posintermed=0;};
 
 		Vec getPos(){return pos;};
 		Vec* getPathPos(){return path_pos;};
