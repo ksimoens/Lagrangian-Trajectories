@@ -7,12 +7,14 @@ int main(){
 	auto t_start = std::chrono::high_resolution_clock::now();
 
 	struct config_params myparams = read_config();
-	#ifndef NETWORK
+	#ifdef CIRCULAR
 		Grid grid = Grid(myparams.x0,myparams.y0,myparams.r,myparams.v);
-	#else
-		Grid grid = Grid(myparams.x0,myparams.y0,myparams.r,myparams.v,myparams.net);
+	#elif NETWORK
+		Grid grid = Grid(myparams.x0,myparams.y0,myparams.v,myparams.net);
+	#elif LYAPUNOV
+		Grid grid = Grid(myparams.v);
 	#endif
-	
+	/*
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_init = std::chrono::duration<double, std::milli>(t_end-t_start).count();
 	
@@ -27,7 +29,7 @@ int main(){
 	}
 
 	grid.write_simulation(myparams.w,dt_init,dt_sim);
-
+	*/
 	return 0;
 
 }

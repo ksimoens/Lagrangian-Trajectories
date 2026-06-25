@@ -35,12 +35,12 @@ class Grid{
 		#endif
 
 	public:
-		Grid(float x0,float y0,std::string veldir);
 		#ifdef CIRCULAR
 			Grid(float x0,float y0,float r,std::string veldir);
-		#endif
-		#ifdef NETWORK
-			Grid(float x0,float y0,float r,std::string veldir,std::string netdir);
+		#elif NETWORK
+			Grid(float x0,float y0,std::string veldir,std::string netdir);
+		#elif LYAPUNOV
+			Grid(std::string veldir);
 		#endif
 		~Grid(){delete[] vels; delete[] network; delete[] particles; particles = 0; vels=0; network=0;};
 
