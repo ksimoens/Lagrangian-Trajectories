@@ -2,25 +2,6 @@
 #include "Particle.h"
 #include "globParams.h"
 
-Grid::Grid(float x0,float y0,std::string veldir){
-
-	#ifdef DAY
-		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
-		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
-	#elifdef HOUR
-		this->Nstart = 1;
-		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
-	#endif
-	//velslice = new Vec[NLON*NLAT*2]();
-	this->particles = new Particle[NPART*Nstart];
-	this->pos0 = Vec(x0,y0);
-	this->radius = 0.0;
-	this->network = 0;
-
-	fill_vels(veldir);
-	initial_particles();
-}
-
 #ifdef CIRCULAR
 Grid::Grid(float x0,float y0,float r,std::string veldir){
 
@@ -44,7 +25,7 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 #endif
 
 #ifdef NETWORK
-Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
+Grid::Grid(float x0,float y0,std::string veldir,std::string netdir){
 
 	#ifdef DAY
 		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
@@ -60,6 +41,25 @@ Grid::Grid(float x0,float y0,float r,std::string veldir,std::string netdir){
 	this->network = new int[NPART*this->Nstart*NCELL]();
 	get_cell_ids(netdir);
 	initial_network();
+
+	fill_vels(veldir);
+	initial_particles();
+
+}
+#endif
+
+#ifdef LYAPUNOV
+Grid::Grid(std::string veldir){
+
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elifdef HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+	#endif
+	this->particles = new Particle[NLON*NLAT]();
+	this->network = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -271,6 +271,20 @@ void Grid::initial_particles(){
 				}
 			}
 
+	}
+	#endif
+
+	#ifdef LYAPUNOV
+
+	#pragma omp parallel 
+	{
+		#pragma omp for
+		for(int ilat=0;ilat<NLAT;ilat++){
+			for(int ilon=0;ilon<NLON;ilon++){
+				this->particles[ilon+NLON*ilat].setPos(
+						Vec(ilon*LONRES+LONMIN,mu_lat(ilat*LATRES+LATMIN)));
+			}
+		}
 	}
 	#endif
 
