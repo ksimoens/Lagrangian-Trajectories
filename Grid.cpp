@@ -282,16 +282,12 @@ void Grid::initial_particles(){
 		int k = 0;
 		for(int ilat=1;ilat<(NLAT-1);ilat++){
 			for(int ilon=1;ilon<(NLON-1);ilon++){
-				if(k==173){
-					std::cout << "ok" << std::endl;
-				}
-				this->particles[(ilon-1)+NLON*(ilat-1)].setPos(
-						Vec(ilon*LONRES+LONMIN,mu_lat(ilat*LATRES+LATMIN)));
+				this->particles[k].get_initial_pos(Vec(LONMIN+ilon*LONRES,mu_lat(LATMIN+ilat*LATRES)),0.0,0.0,0.0,0);
 				k++;
 			}
 		}
 	}
-	std::cout << this->particles[173].getPos().getX() << std::endl;
+
 	#endif
 
 }
@@ -349,7 +345,7 @@ void Grid::initial_network(){
 
 void Grid::do_simulation(){
 
-	//#pragma omp parallel
+	#pragma omp parallel
 	{
 
 		std::random_device rd;
@@ -369,15 +365,18 @@ void Grid::do_simulation(){
 				}
 			}
 		#else
+			#pragma omp for
 			for(int j=0;j<((NLON-2)*(NLAT-2));j++){
-					std::cout << j << std::endl;
+			//for(int j=0;j<1000;j++){
+					//std::cout << j << std::endl;
 					this->particles[j].make_trajectory(this->vels,rng);
 			}
+
 		#endif
 	}
 }
-/*
-#ifndef NETWORK
+
+#ifdef CIRCULAR
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
@@ -565,7 +564,105 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 }
 
-#else
+#elif LYAPUNOV
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Lyapunov Exponents Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","Lyapunov");
+
+	netCDF::NcDim partDim = data.addDim("particles", (NLON-2)*(NLAT-2));
+	netCDF::NcDim hoursDim = data.addDim("hours",NYEAR*30*24-1);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(hoursDim);
+	dimVector.push_back(partDim);
+
+	std::vector<netCDF::NcDim> dimVector_hours;
+	dimVector_hours.push_back(hoursDim);
+	std::vector<netCDF::NcDim> dimVector_init;
+	dimVector_init.push_back(partDim);
+
+	netCDF::NcVar hoursVar = data.addVar("hours", netCDF::ncInt, dimVector_hours);
+	hoursVar.putAtt("units", "hours");
+	int vec_hours[NYEAR*30*24-1];
+	for(int i=0;i<NYEAR*30*24-1;i++){
+		vec_hours[i] = i;
+	}
+	std::vector<size_t> startp_hours,countp_hours;
+	startp_hours.push_back(0);
+	countp_hours.push_back(NYEAR*30*24-1);
+	hoursVar.putVar(startp_hours,countp_hours,vec_hours);
+
+	netCDF::NcVar initxVar = data.addVar("lon_0", netCDF::ncFloat, dimVector_init);
+	initxVar.putAtt("units", "radians");
+	netCDF::NcVar inityVar = data.addVar("mu_0", netCDF::ncFloat, dimVector_init);
+	inityVar.putAtt("units", "radians");
+	float vec_initx[(NLON-2)*(NLAT-2)];
+	float vec_inity[(NLON-2)*(NLAT-2)];
+	
+	for(int j=0;j<(NLON-2)*(NLAT-2);j++){
+		vec_initx[j] = particles[j].getPathPos()[NYEAR*30*24].getX();
+		vec_inity[j] = particles[j].getPathPos()[NYEAR*30*24].getY();
+	}
+
+	std::vector<size_t> startp_init,countp_init;
+	startp_init.push_back(0);
+	countp_init.push_back((NLON-2)*(NLAT-2));
+	initxVar.putVar(startp_init,countp_init,vec_initx);
+	inityVar.putVar(startp_init,countp_init,vec_inity);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back((NLON-2)*(NLAT-2));
+
+	netCDF::NcVar posxVar = data.addVar("lon", netCDF::ncFloat, dimVector);
+	posxVar.putAtt("units", "radians");
+	float vec_part_posx[(NLON-2)*(NLAT-2)];
+
+	netCDF::NcVar posyVar = data.addVar("mu", netCDF::ncFloat, dimVector);
+	posyVar.putAtt("units", "radians");
+	float vec_part_posy[(NLON-2)*(NLAT-2)];
+
+	for(int t=0;t < NYEAR*30*24-1;t++){
+
+		startp[0]=t;
+		//std::cout << t << std::endl;
+
+		for(int k=0;k < (NLON-2)*(NLAT-2);k++){
+
+			vec_part_posx[k] = particles[k].getPathPos()[t].getX();
+			vec_part_posy[k] = particles[k].getPathPos()[t].getY();
+							
+		}				
+
+				
+		posxVar.putVar(startp,countp,vec_part_posx);
+		posyVar.putVar(startp,countp,vec_part_posy);
+	}
+				
+	data.putAtt("length of trajectories",std::to_string(NYEAR)+" months");
+	data.putAtt("number of particles per release",strname((NLON-2)*(NLAT-2)));
+	data.putAtt("starting date","31-03-2026");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#elif NETWORK
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	auto t_start = std::chrono::high_resolution_clock::now();
@@ -661,4 +758,3 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 }
 #endif
-*/

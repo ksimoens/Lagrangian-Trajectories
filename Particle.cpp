@@ -81,6 +81,11 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setY(pos0.getY()+r_rand*sin(h_rand));
 		trans_pos();
 		this->starttime = t0;
+	#elif LYAPUNOV
+		this->pos.setX(pos0.getX());
+		this->pos.setY(pos0.getY());
+		this->path_pos[NYEAR*30*24].setX(this->pos.getX());
+		this->path_pos[NYEAR*30*24].setY(this->pos.getY());
 	#endif
 
 	#ifdef STOREPOS
@@ -198,10 +203,10 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
 					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()));
 
-	this->velmask[0] += vec_mask[0];
-	this->velmask[1] += vec_mask[1];
-	this->velmask[2] += vec_mask[2];
-	this->velmask[3] += vec_mask[3];
+	this->velmask[0] += vec_mask[0]+mask_lon+mask_mu;
+	this->velmask[1] += vec_mask[1]+mask_lon+mask_mu;
+	this->velmask[2] += vec_mask[2]+mask_lon+mask_mu;
+	this->velmask[3] += vec_mask[3]+mask_lon+mask_mu;
 
 	return(intervel);
 
@@ -610,6 +615,7 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 
 	#ifdef LYAPUNOV
 		for(int t=NYEAR*30*24-1;t > 0;t--){
+		//for(int t=NYEAR*30*24-1;t > 1500;t--){
 			dW.setX(norm(rng));
 			dW.setY(norm(rng));
 			RK_move(velgrid,t,dW);
