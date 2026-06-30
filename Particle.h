@@ -56,7 +56,6 @@ class Particle{
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
-		float lat_mu(float mu);
 
 		void RK_move(Vec* velgrid, int t,Vec dW);
 

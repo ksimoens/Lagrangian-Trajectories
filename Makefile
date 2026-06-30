@@ -9,7 +9,7 @@ OPT += -DNPART=100
 #Starting year.
 OPT += -DYSTART=1
 #Diffusion constant.
-OPT += -DD=100.0
+OPT += -DD=0.0
 #Timestep (seconds)
 OPT += -DDT=-3600.0
 #Shape of velocity grid.
@@ -37,6 +37,8 @@ OPT += -DNETLONMIN=-1.155371
 OPT += -DNETLONMAX=-0.4154256
 OPT += -DNETLATMIN=0.4493061
 OPT += -DNETLATMAX=0.9618006
+#Lyapunov properties.
+OPT += -DDEND=1.0
 
 #Variables for transformation.
 OPT += -DA=6378.140

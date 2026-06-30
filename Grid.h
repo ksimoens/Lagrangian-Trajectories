@@ -34,6 +34,11 @@ class Grid{
 			void initial_network();
 		#endif
 
+		#ifdef LYAPUNOV
+			float haversine(Vec pos0,Vec pos1);
+			float euclidean(Vec pos0,Vec pos1);
+		#endif
+
 	public:
 		#ifdef CIRCULAR
 			Grid(float x0,float y0,float r,std::string veldir);

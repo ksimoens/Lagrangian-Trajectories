@@ -6,6 +6,12 @@ float mu_lat(float lat){
 
 };
 
+float lat_mu(float mu){
+
+	return(M_PI_2-2.0*atan(exp(-mu)));
+
+};
+
 float sgn(float val){
 
 	return((0.0 < val) - (val < 0.0));

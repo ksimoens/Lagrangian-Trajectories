@@ -50,9 +50,9 @@
 #define E1 0.0016796375940427949
 #define R 6367445.0
 */
-extern std::mt19937_64 rng;
 
 extern float mu_lat(float lat);
+extern float lat_mu(float mu);
 extern float sgn(float val);
 
 #endif //SIM_GLOBALCONSTS_H
