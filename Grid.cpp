@@ -56,7 +56,7 @@ Grid::Grid(std::string veldir){
 		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	#elifdef HOUR
 		this->Nstart = 1;
-		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
 	this->particles = new Particle[(NLON-2)*(NLAT-2)]();
 	this->network = 0;
@@ -85,21 +85,52 @@ size_t Grid::calc_ndays(int current_year){
 
 }
 #elifdef HOUR
-size_t Grid::calc_nhours(int current_month){
+size_t Grid::calc_nhours(int current_month,int current_year){
+
+	if(current_month < 1){
+		current_month = 12;
+		current_year--;
+	}
 
 	size_t nhour = 0;
-	for(int month=YSTART;month<current_month+1;month++){
+	
+	int nmonth = 0;
+	int month_i = MSTART;
+	int year_i = YSTART;
 
-		if((month == 1) || (month == 3) || (month == 5) ||
-			(month == 7) || (month == 8) || (month == 10) ||
-			(month == 12)){
-			nhour += 24*31;
-		} else if((month != 2)){
-			nhour += 24*30;
-		} else if((month == 2)){
-			nhour += 24*28;
+	while((month_i != current_month) || (year_i != current_year)){
+		nmonth++;
+		month_i--;
+		if(month_i < 1){
+			month_i = 12;
+			year_i--;
 		}
+	}
 
+	nmonth = NMONTH - nmonth;
+
+	month_i = current_month;
+	year_i = current_year;
+
+	for(int i=nmonth-1;i >= 0;i--){
+		if((month_i == 1) || (month_i == 3) || (month_i == 5) ||
+			(month_i == 7) || (month_i == 8) || (month_i == 10) ||
+			(month_i == 12)){
+			nhour += 24*31;
+		} else if((month_i != 2)){
+			if((year_i % 4 == 0) & (year_i != 2000)){
+				nhour += 24*29;
+			} else{
+				nhour += 24*28;
+			}
+		} else{
+			nhour += 24*30;
+		}
+		month_i--;
+		if(month_i < 1){
+			month_i = 12;
+			year_i--;
+		}
 	}
 
 	return(nhour);
@@ -114,9 +145,29 @@ void Grid::fill_vels(std::string veldir){
 			fill_vels_year(i,veldir);
 		}
 	#elif HOUR
-		for(int i=YSTART;i<NYEAR+1;i++){
-			fill_vels_month(i,veldir);
+		
+		int vec_month[NMONTH];
+		int vec_year[NMONTH];
+		int year_i = YSTART;
+		int month_i = MSTART;
+
+		vec_month[NMONTH-1] = month_i;
+		vec_year[NMONTH-1] = year_i;
+
+		for(int i=NMONTH-2;i>=0;i--){
+			month_i -= 1;
+			if(month_i < 1){
+				month_i = 12;
+				year_i -= 1;
+			}
+			vec_month[i] = month_i;
+			vec_year[i] = year_i;
 		}
+
+		for(int i=0;i < NMONTH;i++){
+			fill_vels_month(vec_year[i],vec_month[i],veldir);
+		}
+
 	#endif
 
 }
@@ -168,19 +219,23 @@ void Grid::fill_vels_year(int year,std::string veldir){
 
 }
 #elif HOUR
-void Grid::fill_vels_month(int month,std::string veldir){
+void Grid::fill_vels_month(int year,int month,std::string veldir){
 
 	size_t nhour;
-	size_t nhour_before = calc_nhours(month-1);
+	size_t nhour_before = calc_nhours(month-1,year);
 
 	if((month == 1) || (month == 3) || (month == 5) ||
 		(month == 7) || (month == 8) || (month == 10) ||
 		(month == 12)){
 		nhour = 24*31;
-	} else if((month != 2)){
-		nhour = 24*30;
 	} else if((month == 2)){
-		nhour = 24*28;
+		if((year % 4 == 0) & (year != 2000)){
+			nhour = 24*29;
+		} else{
+			nhour = 24*28;
+		}
+	} else{
+		nhour = 24*30;
 	}
 
 	float grid_time_x[NLAT][NLON];
@@ -189,7 +244,7 @@ void Grid::fill_vels_month(int month,std::string veldir){
 	size_t n_zero = 2;
 	mstr = std::string(n_zero - std::min(n_zero, mstr.length()), '0') + mstr;
 	
-	netCDF::NcFile dataFile(veldir+"/vel_"+mstr+".nc", netCDF::NcFile::read);
+	netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(year)+"_"+mstr+".nc", netCDF::NcFile::read);
 	netCDF::NcVar velxVar;
 	velxVar = dataFile.getVar("u");
 	netCDF::NcVar velyVar;
@@ -668,7 +723,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				mat_tau[ilat-2][ilon-2] = -999;
 
-				for(int t=NYEAR*28*24;t >= 0;t--){
+				for(int t=NMONTH*28*24;t >= 0;t--){
 
 					vec_dist[0] = euclidean(this->particles[(ilon-1)+(NLON-2)*(ilat-1)].getPathPos()[t],
 											this->particles[(ilon-2)+(NLON-2)*(ilat-1)].getPathPos()[t]);
@@ -694,7 +749,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 						c = 0;
 						break;
 					}else if(mean_dist/c > DEND){
-						mat_tau[ilat-2][ilon-2] = 28*24*NYEAR-t;
+						mat_tau[ilat-2][ilon-2] = 28*24*NMONTH-t;
 						mean_dist = 0.0;
 						c = 0;
 						break;
@@ -711,7 +766,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				
 	distVar.putVar(startp,countp,mat_tau);
 				
-	data.putAtt("length of trajectories",std::to_string(NYEAR)+" months");
+	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
 	data.putAtt("number of particles per release",strname((NLON-2)*(NLAT-2)));
 	data.putAtt("starting date","31-03-2026");
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");

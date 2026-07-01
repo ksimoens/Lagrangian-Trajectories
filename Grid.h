@@ -23,8 +23,8 @@ class Grid{
 			size_t calc_ndays(int current_year);
 			void fill_vels_year(int year,std::string veldir);
 		#elif HOUR
-			size_t calc_nhours(int current_month);
-			void fill_vels_month(int month,std::string veldir);
+			size_t calc_nhours(int current_month,int current_year);
+			void fill_vels_month(int year,int month,std::string veldir);
 		#endif
 		//void get_mus(std::string veldir);
 		//void get_time_slice(int t);

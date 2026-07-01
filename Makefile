@@ -1,5 +1,7 @@
 #Total number of years to integrate.
-OPT += -DNYEAR=3
+#OPT += -DNYEAR=1
+#Total number of months to integrate.
+OPT += -DNMONTH=4
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
@@ -7,7 +9,9 @@ OPT += -DDTSTART=15
 #Number of particles.
 OPT += -DNPART=100
 #Starting year.
-OPT += -DYSTART=1
+OPT += -DYSTART=2026
+#Starting month.
+OPT += -DMSTART=3
 #Diffusion constant.
 OPT += -DD=0.0
 #Timestep (seconds)

@@ -21,8 +21,8 @@ Particle::Particle(){
 		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0] = this->pos;
 	#elif LYAPUNOV
-		this->path_pos = new Vec[NYEAR*28*24+1];
-		this->path_pos[NYEAR*28*24] = this->pos;
+		this->path_pos = new Vec[NMONTH*28*24+1];
+		this->path_pos[NMONTH*28*24] = this->pos;
 	#else
 		this->path_pos = 0;
 	#endif
@@ -58,9 +58,9 @@ Particle::Particle(float x0,float y0,int t0){
 		this->path_pos[0].setX(this->pos.getX());
 		this->path_pos[0].setY(this->pos.getY());
 	#elif LYAPUNOV
-		this->path_pos = new Vec[NYEAR*28*24+1];
-		this->path_pos[NYEAR*28*24].setX(this->pos.getX());
-		this->path_pos[NYEAR*28*24].setY(this->pos.getY());
+		this->path_pos = new Vec[NMONTH*28*24+1];
+		this->path_pos[NMONTH*28*24].setX(this->pos.getX());
+		this->path_pos[NMONTH*28*24].setY(this->pos.getY());
 	#else
 		this->path_pos = 0;
 	#endif
@@ -84,8 +84,8 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 	#elif LYAPUNOV
 		this->pos.setX(pos0.getX());
 		this->pos.setY(pos0.getY());
-		this->path_pos[NYEAR*28*24].setX(this->pos.getX());
-		this->path_pos[NYEAR*28*24].setY(this->pos.getY());
+		this->path_pos[NMONTH*28*24].setX(this->pos.getX());
+		this->path_pos[NMONTH*28*24].setY(this->pos.getY());
 	#endif
 
 	#ifdef STOREPOS
@@ -608,7 +608,7 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
 
 	#ifdef LYAPUNOV
-		for(int t=NYEAR*28*24;t > 0;t--){
+		for(int t=NMONTH*28*24;t > 0;t--){
 		//for(int t=NYEAR*30*24-1;t > 1500;t--){
 			dW.setX(norm(rng));
 			dW.setY(norm(rng));
