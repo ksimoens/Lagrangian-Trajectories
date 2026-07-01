@@ -8,7 +8,7 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 	#ifdef DAY
 		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
 		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
-	#elifdef HOUR
+	#elif HOUR
 		this->Nstart = 1;
 		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
 	#endif
@@ -30,7 +30,7 @@ Grid::Grid(float x0,float y0,std::string veldir,std::string netdir){
 	#ifdef DAY
 		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
 		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
-	#elifdef HOUR
+	#elif HOUR
 		this->Nstart = 1;
 		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
 	#endif
@@ -54,11 +54,14 @@ Grid::Grid(std::string veldir){
 	#ifdef DAY
 		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
 		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
-	#elifdef HOUR
+	#elif HOUR
 		this->Nstart = 1;
 		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
-	this->particles = new Particle[(NLON-2)*(NLAT-2)]();
+	
+	int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
+	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+	this->particles = new Particle[(nlon-2)*(nlat-2)]();
 	this->network = 0;
 
 	fill_vels(veldir);
@@ -84,7 +87,7 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
-#elifdef HOUR
+#elif HOUR
 size_t Grid::calc_nhours(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -331,13 +334,16 @@ void Grid::initial_particles(){
 
 	#ifdef LYAPUNOV
 
+	int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
+	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+
 	//#pragma omp parallel 
 	{
 		//#pragma omp for
 		int k = 0;
-		for(int ilat=1;ilat<(NLAT-1);ilat++){
-			for(int ilon=1;ilon<(NLON-1);ilon++){
-				this->particles[k].get_initial_pos(Vec(LONMIN+ilon*LONRES,mu_lat(LATMIN+ilat*LATRES)),0.0,0.0,0.0,0);
+		for(int ilat=1;ilat<(nlat-1);ilat++){
+			for(int ilon=1;ilon<(nlon-1);ilon++){
+				this->particles[k].get_initial_pos(Vec(LYAPLONMIN+ilon*LYAPLONRES,mu_lat(LYAPLATMIN+ilat*LYAPLATRES)),0.0,0.0,0.0,0);
 				k++;
 			}
 		}
@@ -420,8 +426,10 @@ void Grid::do_simulation(){
 				}
 			}
 		#else
+			int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
+			int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
 			#pragma omp for
-			for(int j=0;j<((NLON-2)*(NLAT-2));j++){
+			for(int j=0;j<((nlon-2)*(nlat-2));j++){
 			//for(int j=0;j<1000;j++){
 					//std::cout << j << std::endl;
 					this->particles[j].make_trajectory(this->vels,rng);
@@ -657,6 +665,9 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
+	int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
+	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
 	data.putAtt("title","Lyapunov Exponents Northern Atlantic Ocean");
@@ -667,8 +678,8 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	auto t_start = std::chrono::high_resolution_clock::now();
 	data.putAtt("simulation type","Lyapunov");
 
-	netCDF::NcDim lonDim = data.addDim("lon", (NLON-4));
-	netCDF::NcDim latDim = data.addDim("lat", (NLAT-4));
+	netCDF::NcDim lonDim = data.addDim("lon", (nlon-4));
+	netCDF::NcDim latDim = data.addDim("lat", (nlat-4));
 
 	std::vector<netCDF::NcDim> dimVector;
 	dimVector.push_back(latDim);
@@ -683,38 +694,38 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	lonVar.putAtt("units", "degrees");
 	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
 	latVar.putAtt("units", "degrees");
-	float vec_lon[(NLON-4)];
-	float vec_lat[(NLAT-4)];
+	float vec_lon[(nlon-4)];
+	float vec_lat[(nlat-4)];
 	
-	for(int j=2;j<(NLON-2);j++){
-		vec_lon[j-2] = (LONMIN+j*LONRES)/M_PI*180;
+	for(int j=2;j<(nlon-2);j++){
+		vec_lon[j-2] = (LYAPLONMIN+j*LYAPLONRES)/M_PI*180;
 	}
-	for(int j=2;j<(NLAT-2);j++){
-		vec_lat[j-2] = (LATMIN+j*LATRES)/M_PI*180;
+	for(int j=2;j<(nlat-2);j++){
+		vec_lat[j-2] = (LYAPLATMIN+j*LYAPLATRES)/M_PI*180;
 	}
 
 	std::vector<size_t> startp_lon,countp_lon;
 	startp_lon.push_back(0);
-	countp_lon.push_back((NLON-4));
+	countp_lon.push_back((nlon-4));
 	std::vector<size_t> startp_lat,countp_lat;
 	startp_lat.push_back(0);
-	countp_lat.push_back((NLAT-4));
+	countp_lat.push_back((nlat-4));
 	lonVar.putVar(startp_lon,countp_lon,vec_lon);
 	latVar.putVar(startp_lat,countp_lat,vec_lat);
 
 	std::vector<size_t> startp,countp;
 	startp.push_back(0);
 	startp.push_back(0);
-	countp.push_back(NLAT-4);
-	countp.push_back(NLON-4);
+	countp.push_back(nlat-4);
+	countp.push_back(nlon-4);
 
 	netCDF::NcVar distVar = data.addVar("tau", netCDF::ncInt, dimVector);
 	distVar.putAtt("units", "hours");
-	int mat_tau[(NLAT-4)][(NLON-4)];
+	int mat_tau[(nlat-4)][(nlon-4)];
 
 	#pragma omp parallel for
-	for(int ilat=2;ilat<(NLAT-2);ilat++){
-		for(int ilon=2;ilon<(NLON-2);ilon++){
+	for(int ilat=2;ilat<(nlat-2);ilat++){
+		for(int ilon=2;ilon<(nlon-2);ilon++){
 
 				float vec_dist[4];
 				int mask = 0;
@@ -725,14 +736,14 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				for(int t=NMONTH*28*24;t >= 0;t--){
 
-					vec_dist[0] = euclidean(this->particles[(ilon-1)+(NLON-2)*(ilat-1)].getPathPos()[t],
-											this->particles[(ilon-2)+(NLON-2)*(ilat-1)].getPathPos()[t]);
-					vec_dist[1] = euclidean(this->particles[(ilon-1)+(NLON-2)*(ilat-1)].getPathPos()[t],
-											this->particles[(ilon-1)+(NLON-2)*(ilat)].getPathPos()[t]);
-					vec_dist[2] = euclidean(this->particles[(ilon-1)+(NLON-2)*(ilat-1)].getPathPos()[t],
-											this->particles[(ilon)+(NLON-2)*(ilat-1)].getPathPos()[t]);
-					vec_dist[3] = euclidean(this->particles[(ilon-1)+(NLON-2)*(ilat-1)].getPathPos()[t],
-											this->particles[(ilon-1)+(NLON-2)*(ilat-2)].getPathPos()[t]);
+					vec_dist[0] = euclidean(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathPos()[t],
+											this->particles[(ilon-2)+(nlon-2)*(ilat-1)].getPathPos()[t]);
+					vec_dist[1] = euclidean(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathPos()[t],
+											this->particles[(ilon-1)+(nlon-2)*(ilat)].getPathPos()[t]);
+					vec_dist[2] = euclidean(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathPos()[t],
+											this->particles[(ilon)+(nlon-2)*(ilat-1)].getPathPos()[t]);
+					vec_dist[3] = euclidean(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathPos()[t],
+											this->particles[(ilon-1)+(nlon-2)*(ilat-2)].getPathPos()[t]);
 
 					for(int x=0;x<4;x++){
 						mask = (vec_dist[x] < -100.0) ? 1 : 0;
@@ -767,7 +778,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	distVar.putVar(startp,countp,mat_tau);
 				
 	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
-	data.putAtt("number of particles per release",strname((NLON-2)*(NLAT-2)));
+	data.putAtt("number of particles per release",std::to_string((nlon-2)*(nlat-2)));
 	data.putAtt("starting date","31-03-2026");
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	data.putAtt("final distance",std::to_string(DEND)+" degrees");
