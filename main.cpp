@@ -9,10 +9,15 @@ int main(){
 	struct config_params myparams = read_config();
 	#ifdef CIRCULAR
 		Grid grid = Grid(myparams.x0,myparams.y0,myparams.r,myparams.v);
-	#elif NETWORK
+	#endif
+	#ifdef NETWORK
 		Grid grid = Grid(myparams.x0,myparams.y0,myparams.v,myparams.net);
-	#elif LYAPUNOV
+	#endif
+	#ifdef LYAPUNOV
 		Grid grid = Grid(myparams.v);
+	#endif
+	#ifdef SST
+		Grid grid = Grid(myparams.r,myparams.v,myparams.sst);
 	#endif
 	
 	auto t_end = std::chrono::high_resolution_clock::now();

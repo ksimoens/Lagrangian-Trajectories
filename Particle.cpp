@@ -44,14 +44,13 @@ Particle::Particle(float x0,float y0,int t0){
 	for(int i=0;i<4;i++){
 		this->velmask[i] = 0;
 		this->vecnum[i] = 0.0;
-		this->posintermed[i] = Vec(0.0,0.0);
 
 	}
 	for(int i=0;i<3;i++){
 		this->posintermed[i] = Vec(0.0,0.0);
 	}
 	#ifndef NETWORK
-	trans_pos();
+		trans_pos();
 	#endif
 	#ifdef STOREPOS
 		this->path_pos = new Vec[NYEAR*365+1];
@@ -81,7 +80,8 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setY(pos0.getY()+r_rand*sin(h_rand));
 		trans_pos();
 		this->starttime = t0;
-	#elif LYAPUNOV
+	#endif
+	#ifdef LYAPUNOV
 		this->pos.setX(pos0.getX());
 		this->pos.setY(pos0.getY());
 		this->path_pos[NMONTH*28*24].setX(this->pos.getX());
@@ -93,7 +93,18 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->path_pos[0].setY(this->pos.getY());
 	#endif
 
+	#ifdef SST
+		float r_rand = r0*sqrt(r1);
+		float h_rand = 2.0*M_PI*r2;
+		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r_rand*cos(h_rand));
+		this->pos.setY(fun_y(pos0.getY())+r_rand*sin(h_rand));
+		trans_pos();
+		this->starttime = t0;
+	#endif
+
 } 
+
+// https://neacsu.net/geodesy/snyder/7-pseudocylindrical/sect_30/
 
 float Particle::fun_lon(float x0, float lat){
 
@@ -112,6 +123,25 @@ float Particle::get_mu(float y0){
 	return( y0/A/(1.0-E2/4.0 - 3.0*pow(E2,2)/64.0 - 5.0*pow(E2,3)/256.0) );
 
 }
+
+#ifdef SST
+
+float Particle::fun_x(float lon,float lat){
+
+	return( A*lon*cos(lat)/sqrt(1.0-E2*pow(sin(lat),2)) );
+
+}
+
+float Particle::fun_y(float lat){
+
+	return( A*( (1.0-E2/4.0 - 3.0*pow(E2,2)/64.0 - 5.0*pow(E2,3)/256.0)*lat -
+				(3.0*E2/8.0 + 3.0*pow(E2,2)/32.0 + 45.0*pow(E2,3)/1024.0)*sin(2.0*lat) +
+				(15.0*pow(E2,2)/256.0 + 45.0*pow(E2,3)/1024.0)*sin(4.0*lat) -
+				(35.0*pow(E2,3)/3072.0)*sin(6.0*lat) ) );
+
+}
+
+#endif
 
 void Particle::trans_pos(){
 
@@ -142,30 +172,30 @@ void Particle::xy_to_lonmu(){
 }
 #endif
 
-int Particle::get_lon_index(Vec pos0){
+int Particle::get_lon_index(Vec pos0,float lonmin,float lonmax,float lonres){
 
-	int mask_max = (pos0.getX() > LONMAX) ? 1 : 0;
-	int mask_min = (pos0.getX() < LONMIN) ? 1 : 0;
+	int mask_max = (pos0.getX() > lonmax) ? 1 : 0;
+	int mask_min = (pos0.getX() < lonmin) ? 1 : 0;
 
-	return(floor((pos0.getX()-LONMIN)/LONRES)*(1-mask_max)*(1-mask_min) +
+	return(floor((pos0.getX()-lonmin)/lonres)*(1-mask_max)*(1-mask_min) +
 			(-1)*mask_max + (-1)*mask_min);
 
 }
 
-int Particle::get_lat_index(float lat){
+int Particle::get_lat_index(float lat,float latmin,float latmax,float latres){
 
-	int mask_max = (lat > LATMAX) ? 1 : 0;
-	int mask_min = (lat < LATMIN) ? 1 : 0;
+	int mask_max = (lat > latmax) ? 1 : 0;
+	int mask_min = (lat < latmin) ? 1 : 0;
 
-	return(floor((lat-LATMIN)/LATRES)*(1-mask_max)*(1-mask_min) +
+	return(floor((lat-latmin)/latres)*(1-mask_max)*(1-mask_min) +
 			(-1)*mask_max + (-1)*mask_min);
 
 }
 
 Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 	
-	int i = get_lon_index(pos0);
-	int j = get_lat_index(lat);
+	int i = get_lon_index(pos0,LONMIN,LONMAX,LONRES);
+	int j = get_lat_index(lat,LATMIN,LATMAX,LATRES);
 	Vec intervel;
 
 	int mask_lon = (i == -1) ? 1 : 0;
@@ -182,7 +212,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 	int n = 1;
 
-	#ifdef LYAPUNOV
+	#if defined(LYAPUNOV) || defined(SST)
 		n = -1;
 	#endif
 
@@ -214,11 +244,10 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
-	int i = get_lon_index(pos0);
-	int j = get_lat_index(lat);
+	int i = get_lon_index(pos0,LONMIN,LONMAX,LONRES);
+	int j = get_lat_index(lat,LATMIN,LATMAX,LATRES);
 
 	Vec intervel;
-	int mask_all = (pos0.getX() < -100.0) ? 1 : 0;
 
 	int mask_lon = (i == -1) ? 1 : 0;
 	int mask_mu = (j == -1) ? 1 : 0;
@@ -234,7 +263,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int n = 1;
 
-	#ifdef LYAPUNOV
+	#if defined(LYAPUNOV) || defined(SST)
 		n = -1;
 	#endif
 
@@ -247,11 +276,9 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 	edges[3] = (velgrid[(i+1)+NLON*(j+NLAT*t)] + 
 					velgrid[(i+1)+NLON*(j+NLAT*(t+n))])/2;
 	
-	int vec_mask[4];
-	vec_mask[0] = (edges[0].getX() < -100.0) ? 1 : 0;
-	vec_mask[1] = (edges[1].getX() < -100.0) ? 1 : 0;
-	vec_mask[2] = (edges[2].getX() < -100.0) ? 1 : 0;
-	vec_mask[3] = (edges[3].getX() < -100.0) ? 1 : 0;
+	for(int i=0;i<4;i++){
+		this->velmask[i] += ((edges[i].getX() < -100.0) ? 1 : 0)+mask_lon+mask_mu;
+	}
 
 	intervel = 1.0/LONRES/(y2-y1)*
 				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
@@ -259,23 +286,57 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
 					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()));
 
+	return(intervel);
+
+}
+
+#ifdef SST
+
+float Particle::interpol(float* sstgrid){
+
+	int i = get_lon_index(this->pos,SSTGRIDLONMIN,SSTGRIDLONMAX,SSTGRIDLONRES);
+	int j = get_lat_index(lat_mu(this->pos.getY()),SSTGRIDLATMIN,SSTGRIDLATMAX,SSTGRIDLATRES);
+	
+	float intersst;
+	int mask_all = (this->pos.getX() < -100.0) ? 1 : 0;
+
+	int mask_lon = (i == -1) ? 1 : 0;
+	int mask_mu = (j == -1) ? 1 : 0;
+	mask_all += mask_lon + mask_mu;
+
+	i = (1-mask_lon)*i;
+	j = (1-mask_mu)*j;
+
+	float edges[4];
+	float x1 = SSTGRIDLONMIN+SSTGRIDLONRES*i;
+	float x2 = x1+SSTGRIDLONRES;
+	float y1 = mu_lat(SSTGRIDLATMIN+SSTGRIDLATRES*j);
+	float y2 = mu_lat(y1+SSTGRIDLATRES);
+
+	edges[0] = sstgrid[i+SSTGRIDNLON*(j)];
+	edges[1] = sstgrid[i+SSTGRIDNLON*(j+1)];
+	edges[2] = sstgrid[(i+1)+SSTGRIDNLON*(j+1)];
+	edges[3] = sstgrid[(i+1)+SSTGRIDNLON*(j)];
+
 	for(int i=0;i<4;i++){
-		mask_all += vec_mask[i];
-		this->velmask[i] += vec_mask[i];
+		mask_all += (edges[i] < -100.0) ? 1 : 0;
 	}
 
 	mask_all = (mask_all == 0) ? 0 : 1;
 
-	intervel = (1-mask_all)/LONRES/(y2-y1)*
-				(edges[0]*(x2-pos0.getX())*(y2-pos0.getY()) + 
-					edges[1]*(x2-pos0.getX())*(pos0.getY()-y1) +
-					edges[2]*(pos0.getX()-x1)*(pos0.getY()-y1) +
-					edges[3]*(pos0.getX()-x1)*(y2-pos0.getY()))+
-				Vec(-999.0,-999.0)*mask_all;
+	intersst = (1-mask_all)/SSTGRIDLONRES/(y2-y1)*
+				(edges[0]*(x2-this->pos.getX())*(y2-this->pos.getY()) + 
+					edges[1]*(x2-this->pos.getX())*(this->pos.getY()-y1) +
+					edges[2]*(this->pos.getX()-x1)*(this->pos.getY()-y1) +
+					edges[3]*(this->pos.getX()-x1)*(y2-this->pos.getY()))+
+				(-999.0)*mask_all;
 
-	return(intervel);
+	return(intersst);
+
 
 }
+
+#endif
 
 void Particle::update_pos(float K,Vec dW){
 
@@ -607,14 +668,15 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 	Vec dW;
 	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
 
-	#ifdef LYAPUNOV
+	#if defined(LYAPUNOV) || defined(SST)
 		for(int t=NMONTH*28*24;t > 0;t--){
 		//for(int t=NYEAR*30*24-1;t > 1500;t--){
 			dW.setX(norm(rng));
 			dW.setY(norm(rng));
 			RK_move(velgrid,t,dW);
 		}
-	#else
+	#endif
+	#ifdef CIRCULAR
 		for(int t=0;t<NYEAR*365;t++){
 			dW.setX(norm(rng));
 			dW.setY(norm(rng));

@@ -20,10 +20,15 @@ class Particle{
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		int get_lon_index(Vec pos0);
-		int get_lat_index(float lat);
+		#ifdef SST
+			float fun_x(float lon,float lat);
+			float fun_y(float lat);
+		#endif
+		int get_lon_index(Vec pos0,float lonmin,float lonmax,float lonres);
+		int get_lat_index(float lat,float latmin,float latmax,float latres);
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int t);
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int k,int t);
+		void RK_move(Vec* velgrid, int t,Vec dW);
 		void update_pos(float K,Vec dW);
 
 		#ifdef NETWORK
@@ -56,8 +61,10 @@ class Particle{
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
-
-		void RK_move(Vec* velgrid, int t,Vec dW);
+		
+		#ifdef SST
+			float interpol(float* SSTgrid);
+		#endif
 
 		#ifdef NETWORK
 			void make_trajectory(Vec* velgrid, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);

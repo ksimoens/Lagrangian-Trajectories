@@ -10,13 +10,14 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	#elif HOUR
 		this->Nstart = 1;
-		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
 	this->pos0 = Vec(x0,y0);
 	this->radius = r;
 	this->network = 0;
+	this->SSTs = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -32,11 +33,12 @@ Grid::Grid(float x0,float y0,std::string veldir,std::string netdir){
 		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
 	#elif HOUR
 		this->Nstart = 1;
-		this->vels = new Vec[NLON*NLAT*calc_nhours(NYEAR+YSTART-1)]();
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
 	this->pos0 = Vec(x0,y0);
+	this->SSTs = 0;
 
 	this->network = new int[NPART*this->Nstart*NCELL]();
 	get_cell_ids(netdir);
@@ -63,9 +65,35 @@ Grid::Grid(std::string veldir){
 	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
 	this->particles = new Particle[(nlon-2)*(nlat-2)]();
 	this->network = 0;
+	this->SSTs = 0;
 
 	fill_vels(veldir);
 	initial_particles();
+
+}
+#endif
+
+#ifdef SST
+Grid::Grid(float r,std::string veldir,std::string SSTdir){
+
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elif HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
+	#endif
+	
+	int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
+	int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+	this->particles = new Particle[(nlon-2)*(nlat-2)*NPART]();
+	this->radius = r;
+	this->network = 0;
+	this->SSTs = new float[SSTGRIDNLON*SSTGRIDNLAT];
+
+	fill_vels(veldir);
+	initial_particles();
+	fill_SSTs(SSTdir);
 
 }
 #endif
@@ -351,6 +379,33 @@ void Grid::initial_particles(){
 
 	#endif
 
+	#ifdef SST
+
+	int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
+	int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+
+	#pragma omp parallel 
+	{
+
+		std::random_device rd;
+		std::seed_seq seed{static_cast<int>(rd()),omp_get_thread_num()};
+		std::mt19937_64 rng(seed);
+		std::uniform_real_distribution<float> unif(0, 1);
+
+		#pragma omp for
+		for(int ilat=1;ilat<(nlat-1);ilat++){
+			for(int ilon=1;ilon<(nlon-1);ilon++){
+				for(int j=0;j<NPART;j++){
+					float r1 = unif(rng);
+					float r2 = unif(rng);
+					this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].get_initial_pos(Vec(SSTLONMIN+ilon*SSTLONRES,SSTLATMIN+ilat*SSTLATRES),r1,r2,this->radius,0);
+				}
+			}
+		}
+	}
+
+	#endif
+
 }
 
 /*void Grid::get_mus(std::string veldir){
@@ -404,6 +459,34 @@ void Grid::initial_network(){
 
 #endif
 
+#ifdef SST
+
+void Grid::fill_SSTs(std::string SSTdir){
+
+	float grid_SST[SSTGRIDNLAT][SSTGRIDNLON];
+	netCDF::NcFile dataFile(SSTdir+".nc", netCDF::NcFile::read);
+	netCDF::NcVar SSTVar;
+	SSTVar = dataFile.getVar("SST");
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(SSTGRIDNLAT);
+	countp.push_back(SSTGRIDNLON);
+
+	SSTVar.getVar(startp,countp,grid_SST);
+     
+	for(int ilon=0;ilon<SSTGRIDNLON;ilon++){
+		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+			this->SSTs[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+		}
+	}
+     
+
+}
+
+#endif
+
 void Grid::do_simulation(){
 
 	#pragma omp parallel
@@ -413,8 +496,8 @@ void Grid::do_simulation(){
 		std::seed_seq seed{static_cast<int>(rd()),2};//omp_get_thread_num()};
 		std::mt19937_64 rng(seed);
 
-		//#pragma omp for
-		#ifndef LYAPUNOV
+		#if defined(CIRCULAR) || defined(NETWORK)
+			#pragma omp for
 			for(int i=0;i<this->Nstart;i++){
 				std::cout << i << std::endl;
 				for(int j=0;j<NPART;j++){
@@ -425,7 +508,9 @@ void Grid::do_simulation(){
 					#endif
 				}
 			}
-		#else
+		#endif
+		#ifdef LYAPUNOV
+
 			int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
 			int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
 			#pragma omp for
@@ -436,10 +521,21 @@ void Grid::do_simulation(){
 			}
 
 		#endif
+		#ifdef SST
+			int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
+			int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+			#pragma omp for
+			for(int j=0;j<((nlon-2)*(nlat-2)*NPART);j++){
+			//for(int j=0;j<1000;j++){
+					//std::cout << j << std::endl;
+					this->particles[j].make_trajectory(this->vels,rng);
+			}
+
+		#endif
 	}
 }
 
-#ifdef LYAPUNOV
+#if defined(LYAPUNOV) || defined(SST)
 float Grid::haversine(Vec pos0,Vec pos1){
 
 	int mask0 = (pos0.getX() < -100.0) ? 1 : 0;
@@ -482,6 +578,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	time_t timestamp;
 	time(&timestamp);
 	data.putAtt("clock time",ctime(&timestamp));
+
 	Particle p = Particle(this->pos0.getX(),this->pos0.getY(),0);
 	data.putAtt("central starting position","("+
 					std::to_string(p.getPos().getX()/M_PI*180)+" ; "+
@@ -490,7 +587,6 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 		data.putAtt("initial condition","circular");
 		data.putAtt("radius",std::to_string(this->radius)+" km");
 	#endif
-
 
 	#if defined(STOREPOS) || defined(STOREVEL)
 		auto t_start = std::chrono::high_resolution_clock::now();
@@ -661,7 +757,9 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 }
 
-#elif LYAPUNOV
+#endif
+
+#ifdef LYAPUNOV
 
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
@@ -790,7 +888,9 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 }
 
-#elif NETWORK
+#endif
+
+#ifdef NETWORK
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	auto t_start = std::chrono::high_resolution_clock::now();
@@ -885,4 +985,143 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 
 }
+#endif
+
+#ifdef SST
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
+	int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","SST origins Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","SST");
+
+	netCDF::NcDim lonDim = data.addDim("lon", (nlon-2));
+	netCDF::NcDim latDim = data.addDim("lat", (nlat-2));
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(latDim);
+	dimVector.push_back(lonDim);
+
+	std::vector<netCDF::NcDim> dimVector_lon;
+	dimVector_lon.push_back(lonDim);
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+
+	netCDF::NcVar lonVar = data.addVar("lon", netCDF::ncFloat, dimVector_lon);
+	lonVar.putAtt("units", "degrees");
+	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	latVar.putAtt("units", "degrees");
+	float vec_lon[(nlon-2)];
+	float vec_lat[(nlat-2)];
+	
+	for(int j=1;j<(nlon-1);j++){
+		vec_lon[j-1] = (SSTLONMIN+j*SSTLONRES)/M_PI*180;
+	}
+	for(int j=1;j<(nlat-1);j++){
+		vec_lat[j-1] = (SSTLATMIN+j*SSTLATRES)/M_PI*180;
+	}
+
+	std::vector<size_t> startp_lon,countp_lon;
+	startp_lon.push_back(0);
+	countp_lon.push_back((nlon-2));
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back((nlat-2));
+	lonVar.putVar(startp_lon,countp_lon,vec_lon);
+	latVar.putVar(startp_lat,countp_lat,vec_lat);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(nlat-2);
+	countp.push_back(nlon-2);
+
+	netCDF::NcVar meandistVar = data.addVar("meandistance", netCDF::ncFloat, dimVector);
+	meandistVar.putAtt("units", "kilometres");
+	netCDF::NcVar vardistVar = data.addVar("vardistance", netCDF::ncFloat, dimVector);
+	vardistVar.putAtt("units", "kilometres squared");
+	netCDF::NcVar meanSSTVar = data.addVar("meanSST", netCDF::ncFloat, dimVector);
+	meanSSTVar.putAtt("units", "degrees celcius");
+	netCDF::NcVar varSSTVar = data.addVar("varSST", netCDF::ncFloat, dimVector);
+	varSSTVar.putAtt("units", "degrees celcius squared");
+	float mat_meandist[(nlat-2)][(nlon-2)];
+	float mat_vardist[(nlat-2)][(nlon-2)];
+	float mat_meanSST[(nlat-2)][(nlon-2)];
+	float mat_varSST[(nlat-2)][(nlon-2)];
+
+	#pragma omp parallel for
+	for(int ilat=1;ilat<(nlat-1);ilat++){
+		for(int ilon=1;ilon<(nlon-1);ilon++){
+
+				float s_dist = 0.0;
+				float s2_dist = 0.0;
+				float s_sst = 0.0;
+				float s_shift_sst = 0.0;
+				float s2_sst = 0.0;
+				int mask_dist = 0;
+				int c_dist = 0;
+				int mask_sst = 0;
+				int c_sst = 0;
+				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTs);
+				Vec pos0 = Vec(SSTLONMIN+ilon*SSTLONRES,mu_lat(SSTLATMIN+ilat*SSTLATRES));
+				float dist_j,temp_j;
+
+				for(int j=0;j<NPART;j++){
+
+					dist_j = haversine(pos0,this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].getPos());
+					mask_dist = (dist_j < -100.0) ? 1 : 0;
+					s_dist += (1-mask_dist)*dist_j;
+					s2_dist += (1-mask_dist)*pow(dist_j,2);
+					c_dist += (1-mask_dist); 
+
+					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTs);
+					mask_sst = (temp_j < -100.0) ? 1 : 0;
+					s_sst += (1-mask_sst)*temp_j;
+					s_shift_sst += (1-mask_sst)*(temp_j-shift_sst);
+					s2_sst += (1-mask_sst)*pow(temp_j-shift_sst,2);
+					c_sst += (1-mask_sst); 
+
+				}
+
+				mask_dist = (c_dist < (int)(NPART/10)) ? 1 : 0;
+				c_dist = (mask_dist == 1) ? 1 : c_dist;
+				mat_meandist[ilat-1][ilon-1] = (1-mask_dist)*s_dist/c_dist/180.0*M_PI*R/1000.0 + (-999.0)*mask_dist;
+				mat_vardist[ilat-1][ilon-1] = (1-mask_dist)*(s2_dist/c_dist-pow(s_dist/c_dist,2))/180.0/180.0*M_PI*M_PI*R*R/1000.0/1000.0 + (-999.0)*mask_dist;
+
+				mask_sst = (c_sst < (int)(NPART/10)) ? 1 : 0;
+				c_sst = (mask_sst == 1) ? 1 : c_sst;
+				mat_meanSST[ilat-1][ilon-1] = (1-mask_sst)*s_sst/c_sst + (-999.0)*mask_sst;
+				mat_varSST[ilat-1][ilon-1] = (1-mask_sst)*(s2_sst/c_sst-pow(s_shift_sst/c_sst,2)) + (-999.0)*mask_sst;
+
+		}
+	}	
+
+				
+	meandistVar.putVar(startp,countp,mat_meandist);
+	vardistVar.putVar(startp,countp,mat_vardist);
+	meanSSTVar.putVar(startp,countp,mat_meanSST);
+	varSSTVar.putVar(startp,countp,mat_varSST);
+				
+	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
+	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
+	data.putAtt("number of particles per release",std::to_string(NPART));
+	data.putAtt("starting date","31-03-2026");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
 #endif

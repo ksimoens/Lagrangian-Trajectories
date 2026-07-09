@@ -16,6 +16,7 @@ class Grid{
 		int* network;
 		int Nstart;
 		std::set<int> IDvec;
+		float* SSTs;
 		
 		void fill_vels(std::string veldir);
 		void initial_particles();
@@ -34,20 +35,29 @@ class Grid{
 			void initial_network();
 		#endif
 
-		#ifdef LYAPUNOV
+		#if defined(LYAPUNOV) || defined(SST)
 			float haversine(Vec pos0,Vec pos1);
 			float euclidean(Vec pos0,Vec pos1);
+		#endif
+
+		#ifdef SST
+			void fill_SSTs(std::string SSTdir);
 		#endif
 
 	public:
 		#ifdef CIRCULAR
 			Grid(float x0,float y0,float r,std::string veldir);
-		#elif NETWORK
+		#endif
+		#ifdef NETWORK
 			Grid(float x0,float y0,std::string veldir,std::string netdir);
-		#elif LYAPUNOV
+		#endif
+		#ifdef LYAPUNOV
 			Grid(std::string veldir);
 		#endif
-		~Grid(){delete[] vels; delete[] network; delete[] particles; particles = 0; vels=0; network=0;};
+		#ifdef SST
+			Grid(float r,std::string veldir,std::string SSTdir);
+		#endif
+		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTs; particles=0; vels=0; network=0; SSTs=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};
