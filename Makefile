@@ -1,7 +1,7 @@
 #Total number of years to integrate.
-OPT += -DNYEAR=1
+#OPT += -DNYEAR=1
 #Total number of months to integrate.
-#OPT += -DNMONTH=1
+OPT += -DNMONTH=1
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
@@ -9,13 +9,13 @@ OPT += -DDTSTART=15
 #Number of particles.
 OPT += -DNPART=10
 #Starting year.
-OPT += -DYSTART=2000
+OPT += -DYSTART=2026
 #Starting month.
 OPT += -DMSTART=3
 #Diffusion constant.
 OPT += -DD=0.0
 #Timestep (seconds)
-OPT += -DDT=86400.0
+OPT += -DDT=-3600.0
 #Shape of velocity grid.
 OPT += -DNLON=420
 OPT += -DNLAT=240
@@ -26,15 +26,15 @@ OPT += -DLONRES=0.004363323
 OPT += -DLATMIN=0.1767146
 OPT += -DLATMAX=1.219549
 OPT += -DLATRES=0.004363323
-OPT += -DDAY
-#OPT += -DHOUR
+#OPT += -DDAY
+OPT += -DHOUR
 #Particle properties.
-OPT += -DSTOREPOS
+#OPT += -DSTOREPOS
 #OPT += -DSTOREVEL
-OPT += -DCIRCULAR
+#OPT += -DCIRCULAR
 #OPT += -DNETWORK
 #OPT += -DLYAPUNOV
-#OPT += -DSST
+OPT += -DSST
 #Network properties.
 OPT += -DNCELL=385
 OPT += -DNSIDE=64

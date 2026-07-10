@@ -1051,22 +1051,30 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	vardistVar.putAtt("units", "kilometres squared");
 	netCDF::NcVar meanSSTVar = data.addVar("meanSST", netCDF::ncFloat, dimVector);
 	meanSSTVar.putAtt("units", "degrees celcius");
+	netCDF::NcVar meanSSTdiffVar = data.addVar("meanSSTdiff", netCDF::ncFloat, dimVector);
+	meanSSTVar.putAtt("units", "degrees celcius");
 	netCDF::NcVar varSSTVar = data.addVar("varSST", netCDF::ncFloat, dimVector);
 	varSSTVar.putAtt("units", "degrees celcius squared");
 	float mat_meandist[(nlat-2)][(nlon-2)];
 	float mat_vardist[(nlat-2)][(nlon-2)];
 	float mat_meanSST[(nlat-2)][(nlon-2)];
 	float mat_varSST[(nlat-2)][(nlon-2)];
+	float mat_meanSSTdiff[(nlat-2)][(nlon-2)];
 
 	#pragma omp parallel for
 	for(int ilat=1;ilat<(nlat-1);ilat++){
 		for(int ilon=1;ilon<(nlon-1);ilon++){
+
+				Particle p0 = Particle();
+				p0.get_initial_pos(Vec(SSTLONMIN+ilon*SSTLONRES,SSTLATMIN+ilat*SSTLATRES),0,0,0,0);
+				float temp_0 = p0.interpol(this->SSTs);
 
 				float s_dist = 0.0;
 				float s2_dist = 0.0;
 				float s_sst = 0.0;
 				float s_shift_sst = 0.0;
 				float s2_sst = 0.0;
+				float sdiff_sst = 0.0;
 				int mask_dist = 0;
 				int c_dist = 0;
 				int mask_sst = 0;
@@ -1088,6 +1096,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					s_sst += (1-mask_sst)*temp_j;
 					s_shift_sst += (1-mask_sst)*(temp_j-shift_sst);
 					s2_sst += (1-mask_sst)*pow(temp_j-shift_sst,2);
+					sdiff_sst += (1-mask_sst)*(temp_0-temp_j);
 					c_sst += (1-mask_sst); 
 
 				}
@@ -1101,6 +1110,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				c_sst = (mask_sst == 1) ? 1 : c_sst;
 				mat_meanSST[ilat-1][ilon-1] = (1-mask_sst)*s_sst/c_sst + (-999.0)*mask_sst;
 				mat_varSST[ilat-1][ilon-1] = (1-mask_sst)*(s2_sst/c_sst-pow(s_shift_sst/c_sst,2)) + (-999.0)*mask_sst;
+				mat_meanSSTdiff[ilat-1][ilon-1] = (1-mask_sst)*sdiff_sst/c_sst + (-999.0)*mask_sst;
 
 		}
 	}	
@@ -1110,6 +1120,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	vardistVar.putVar(startp,countp,mat_vardist);
 	meanSSTVar.putVar(startp,countp,mat_meanSST);
 	varSSTVar.putVar(startp,countp,mat_varSST);
+	meanSSTdiffVar.putVar(startp,countp,mat_meanSSTdiff);
 				
 	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
 	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
