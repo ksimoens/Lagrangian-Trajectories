@@ -74,7 +74,7 @@ Grid::Grid(std::string veldir){
 #endif
 
 #ifdef SST
-Grid::Grid(float r,std::string veldir,std::string SSTdir){
+Grid::Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddir){
 
 	#ifdef DAY
 		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
@@ -89,11 +89,12 @@ Grid::Grid(float r,std::string veldir,std::string SSTdir){
 	this->particles = new Particle[(nlon-2)*(nlat-2)*NPART]();
 	this->radius = r;
 	this->network = 0;
-	this->SSTs = new float[SSTGRIDNLON*SSTGRIDNLAT];
+	this->SSTbeg = new float[SSTGRIDNLON*SSTGRIDNLAT];
+	this->SSTend = new float[SSTGRIDNLON*SSTGRIDNLAT];
 
 	fill_vels(veldir);
 	initial_particles();
-	fill_SSTs(SSTdir);
+	fill_SSTs(SSTbegdir,SSTenddir);
 
 }
 #endif
@@ -461,12 +462,12 @@ void Grid::initial_network(){
 
 #ifdef SST
 
-void Grid::fill_SSTs(std::string SSTdir){
+void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 
 	float grid_SST[SSTGRIDNLAT][SSTGRIDNLON];
-	netCDF::NcFile dataFile(SSTdir+".nc", netCDF::NcFile::read);
+	netCDF::NcFile dataFilebeg(SSTbegdir+".nc", netCDF::NcFile::read);
 	netCDF::NcVar SSTVar;
-	SSTVar = dataFile.getVar("SST");
+	SSTVar = dataFilebeg.getVar("SST");
 
 	std::vector<size_t> startp,countp;
 	startp.push_back(0);
@@ -478,7 +479,18 @@ void Grid::fill_SSTs(std::string SSTdir){
      
 	for(int ilon=0;ilon<SSTGRIDNLON;ilon++){
 		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
-			this->SSTs[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+			this->SSTbeg[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+		}
+	}
+
+	netCDF::NcFile dataFileend(SSTenddir+".nc", netCDF::NcFile::read);
+	SSTVar = dataFileend.getVar("SST");
+
+	SSTVar.getVar(startp,countp,grid_SST);
+     
+	for(int ilon=0;ilon<SSTGRIDNLON;ilon++){
+		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+			this->SSTend[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
 		}
 	}
      
@@ -1067,7 +1079,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				Particle p0 = Particle();
 				p0.get_initial_pos(Vec(SSTLONMIN+ilon*SSTLONRES,SSTLATMIN+ilat*SSTLATRES),0,0,0,0);
-				float temp_0 = p0.interpol(this->SSTs);
+				float temp_0 = p0.interpol(this->SSTbeg);
 
 				float s_dist = 0.0;
 				float s2_dist = 0.0;
@@ -1079,7 +1091,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				int c_dist = 0;
 				int mask_sst = 0;
 				int c_sst = 0;
-				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTs);
+				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend);
 				Vec pos0 = Vec(SSTLONMIN+ilon*SSTLONRES,mu_lat(SSTLATMIN+ilat*SSTLATRES));
 				float dist_j,temp_j;
 
@@ -1091,7 +1103,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					s2_dist += (1-mask_dist)*pow(dist_j,2);
 					c_dist += (1-mask_dist); 
 
-					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTs);
+					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend);
 					mask_sst = (temp_j < -100.0) ? 1 : 0;
 					s_sst += (1-mask_sst)*temp_j;
 					s_shift_sst += (1-mask_sst)*(temp_j-shift_sst);

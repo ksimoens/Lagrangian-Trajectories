@@ -44,8 +44,11 @@ struct config_params read_config(){
 		} else if(params[0] == "network"){
 			myparams.net = params[1];
 			std::replace(myparams.net.begin(),myparams.net.end(),'%',' ');
-		} else if(params[0] == "SST"){
-			myparams.sst = params[1];
+		} else if(params[0] == "SSTbeg"){
+			myparams.sstbeg = params[1];
+			std::replace(myparams.net.begin(),myparams.net.end(),'%',' ');
+		} else if(params[0] == "SSTend"){
+			myparams.sstend = params[1];
 			std::replace(myparams.net.begin(),myparams.net.end(),'%',' ');
 		}
 

@@ -17,7 +17,7 @@ int main(){
 		Grid grid = Grid(myparams.v);
 	#endif
 	#ifdef SST
-		Grid grid = Grid(myparams.r,myparams.v,myparams.sst);
+		Grid grid = Grid(myparams.r,myparams.v,myparams.sstbeg,myparams.sstend);
 	#endif
 	
 	auto t_end = std::chrono::high_resolution_clock::now();

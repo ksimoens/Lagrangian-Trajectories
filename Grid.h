@@ -16,7 +16,8 @@ class Grid{
 		int* network;
 		int Nstart;
 		std::set<int> IDvec;
-		float* SSTs;
+		float* SSTbeg;
+		float* SSTend;
 		
 		void fill_vels(std::string veldir);
 		void initial_particles();
@@ -41,7 +42,7 @@ class Grid{
 		#endif
 
 		#ifdef SST
-			void fill_SSTs(std::string SSTdir);
+			void fill_SSTs(std::string SSTbegdir,std::string SSTenddir);
 		#endif
 
 	public:
@@ -55,9 +56,9 @@ class Grid{
 			Grid(std::string veldir);
 		#endif
 		#ifdef SST
-			Grid(float r,std::string veldir,std::string SSTdir);
+			Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddir);
 		#endif
-		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTs; particles=0; vels=0; network=0; SSTs=0;};
+		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTbeg; delete[] SSTend; particles=0; vels=0; network=0; SSTbeg=0; SSTend=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};

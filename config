@@ -1,7 +1,8 @@
 x0 -6251.38889821299
 y0 3003.52566073296
 srf 314.159265359
-write test
-velocity /media/kobe/shared/spectrum/daily/vel_transf
+write /media/kobe/Windows/spectrum/output/sim_SST
+velocity /media/kobe/shared/spectrum/hourly/vel_transf
 network ../healpix/test_grid
-SST /media/kobe/shared/spectrum/SST/SST_2026_03_03_transf
+SSTbeg /media/kobe/shared/spectrum/SST/SST_2026_03_31_transf
+SSTend /media/kobe/shared/spectrum/SST/SST_2026_03_03_transf

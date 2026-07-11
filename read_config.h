@@ -16,7 +16,8 @@ struct config_params{
 	std::string w;
 	std::string v;
 	std::string net;
-	std::string sst;
+	std::string sstbeg;
+	std::string sstend;
 
 };
 
