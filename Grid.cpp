@@ -61,11 +61,10 @@ Grid::Grid(std::string veldir){
 		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
 	
-	int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
-	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 	this->particles = new Particle[(nlon-2)*(nlat-2)]();
 	this->network = 0;
-	this->SSTs = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -84,8 +83,8 @@ Grid::Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddi
 		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
 	
-	int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
-	int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 	this->particles = new Particle[(nlon-2)*(nlat-2)*NPART]();
 	this->radius = r;
 	this->network = 0;
@@ -363,8 +362,8 @@ void Grid::initial_particles(){
 
 	#ifdef LYAPUNOV
 
-	int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
-	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 
 	//#pragma omp parallel 
 	{
@@ -372,7 +371,7 @@ void Grid::initial_particles(){
 		int k = 0;
 		for(int ilat=1;ilat<(nlat-1);ilat++){
 			for(int ilon=1;ilon<(nlon-1);ilon++){
-				this->particles[k].get_initial_pos(Vec(LYAPLONMIN+ilon*LYAPLONRES,mu_lat(LYAPLATMIN+ilat*LYAPLATRES)),0.0,0.0,0.0,0);
+				this->particles[k].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,mu_lat(OUTLATMIN+ilat*OUTLATRES)),0.0,0.0,0.0,0);
 				k++;
 			}
 		}
@@ -382,8 +381,8 @@ void Grid::initial_particles(){
 
 	#ifdef SST
 
-	int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
-	int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 
 	#pragma omp parallel 
 	{
@@ -399,7 +398,7 @@ void Grid::initial_particles(){
 				for(int j=0;j<NPART;j++){
 					float r1 = unif(rng);
 					float r2 = unif(rng);
-					this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].get_initial_pos(Vec(SSTLONMIN+ilon*SSTLONRES,SSTLATMIN+ilat*SSTLATRES),r1,r2,this->radius,0);
+					this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),r1,r2,this->radius,0);
 				}
 			}
 		}
@@ -523,8 +522,8 @@ void Grid::do_simulation(){
 		#endif
 		#ifdef LYAPUNOV
 
-			int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
-			int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 			#pragma omp for
 			for(int j=0;j<((nlon-2)*(nlat-2));j++){
 			//for(int j=0;j<1000;j++){
@@ -534,8 +533,8 @@ void Grid::do_simulation(){
 
 		#endif
 		#ifdef SST
-			int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
-			int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 			#pragma omp for
 			for(int j=0;j<((nlon-2)*(nlat-2)*NPART);j++){
 			//for(int j=0;j<1000;j++){
@@ -775,8 +774,8 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
-	int nlon = (int)((LYAPLONMAX-LYAPLONMIN)/LYAPLONRES);
-	int nlat = (int)((LYAPLATMAX-LYAPLATMIN)/LYAPLATRES);
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
@@ -808,10 +807,10 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	float vec_lat[(nlat-4)];
 	
 	for(int j=2;j<(nlon-2);j++){
-		vec_lon[j-2] = (LYAPLONMIN+j*LYAPLONRES)/M_PI*180;
+		vec_lon[j-2] = (OUTLONMIN+j*OUTLONRES)/M_PI*180;
 	}
 	for(int j=2;j<(nlat-2);j++){
-		vec_lat[j-2] = (LYAPLATMIN+j*LYAPLATRES)/M_PI*180;
+		vec_lat[j-2] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
 	}
 
 	std::vector<size_t> startp_lon,countp_lon;
@@ -1003,8 +1002,8 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
-	int nlon = (int)((SSTLONMAX-SSTLONMIN)/SSTLONRES);
-	int nlat = (int)((SSTLATMAX-SSTLATMIN)/SSTLATRES);
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
@@ -1036,10 +1035,10 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	float vec_lat[(nlat-2)];
 	
 	for(int j=1;j<(nlon-1);j++){
-		vec_lon[j-1] = (SSTLONMIN+j*SSTLONRES)/M_PI*180;
+		vec_lon[j-1] = (OUTLONMIN+j*OUTLONRES)/M_PI*180;
 	}
 	for(int j=1;j<(nlat-1);j++){
-		vec_lat[j-1] = (SSTLATMIN+j*SSTLATRES)/M_PI*180;
+		vec_lat[j-1] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
 	}
 
 	std::vector<size_t> startp_lon,countp_lon;
@@ -1078,7 +1077,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 		for(int ilon=1;ilon<(nlon-1);ilon++){
 
 				Particle p0 = Particle();
-				p0.get_initial_pos(Vec(SSTLONMIN+ilon*SSTLONRES,SSTLATMIN+ilat*SSTLATRES),0,0,0,0);
+				p0.get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0,0,0,0);
 				float temp_0 = p0.interpol(this->SSTbeg);
 
 				float s_dist = 0.0;
@@ -1092,7 +1091,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				int mask_sst = 0;
 				int c_sst = 0;
 				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend);
-				Vec pos0 = Vec(SSTLONMIN+ilon*SSTLONRES,mu_lat(SSTLATMIN+ilat*SSTLATRES));
+				Vec pos0 = Vec(OUTLONMIN+ilon*OUTLONRES,mu_lat(OUTLATMIN+ilat*OUTLATRES));
 				float dist_j,temp_j;
 
 				for(int j=0;j<NPART;j++){
