@@ -32,6 +32,14 @@ Particle::Particle(){
 	#else 
 		this->path_vel = 0;
 	#endif
+
+	#ifdef BROWNIAN
+		this->distances = new float[NTIMES];
+		for(int i=0;i<NTIMES;i++){
+			this->distances[i] = 100000.0;
+		}
+		this->pos0 = Vec(0.0,0.0);
+	#endif
 }
 
 Particle::Particle(float x0,float y0,int t0){
@@ -69,6 +77,11 @@ Particle::Particle(float x0,float y0,int t0){
 	#else 
 		this->path_vel = 0;
 	#endif
+
+	#ifdef BROWNIAN
+		this->distances = new float[NTIMES];
+		this->pos0 = Vec(0.0,0.0);
+	#endif
 }
 
 void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
@@ -102,6 +115,17 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->starttime = t0;
 	#endif
 
+	#ifdef BROWNIAN
+		float r_rand = r0*sqrt(r1);
+		float h_rand = 2.0*M_PI*r2;
+		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r_rand*cos(h_rand));
+		this->pos.setY(fun_y(pos0.getY())+r_rand*sin(h_rand));
+		trans_pos();
+		this->pos0.setX(this->pos.getX());
+		this->pos0.setY(this->pos.getY());
+		this->starttime = t0;
+	#endif
+
 } 
 
 // https://neacsu.net/geodesy/snyder/7-pseudocylindrical/sect_30/
@@ -124,7 +148,7 @@ float Particle::get_mu(float y0){
 
 }
 
-#ifdef SST
+#if defined(SST) || defined(BROWNIAN)
 
 float Particle::fun_x(float lon,float lat){
 
@@ -152,6 +176,27 @@ void Particle::trans_pos(){
 	this->pos.setY(mu_lat(lat));
 
 }
+
+#if defined(SST) || defined(BROWNIAN)
+
+float Particle::haversine(Vec pos1){
+
+	int mask0 = (this->pos.getX() < -100.0) ? 1 : 0;
+	int mask1 = (pos1.getX() < -100.0) ? 1 : 0;
+
+	float dlon = this->pos.getX()-pos1.getX();
+	float lat0 = lat_mu(this->pos.getY());
+	float lat1 = lat_mu(pos1.getY());
+	float dlat = lat1-lat0;
+
+	float a = sin(dlat/2)*sin(dlat/2)+cos(lat0)*cos(lat1)*sin(dlon/2)*sin(dlon/2);
+
+	return(2.0*atan2(sqrt(a),sqrt(1-a))/M_PI*180.0*(1-mask0)*(1-mask1)+
+			(-999.0)*((1-mask0)*mask1+(1-mask1)*mask0+mask1*mask0));
+
+}
+
+#endif
 
 #ifdef NETWORK
 void Particle::xy_to_lonmu(){
@@ -662,7 +707,7 @@ void Particle::make_trajectory(Vec* velgrid,std::set<int> IDvec,int* network,int
 
 }
 
-#else
+#elif defined(LYAPUNOV) || defined(SST)
 void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 
 	Vec dW;
@@ -692,4 +737,50 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 	#endif
 
 }
+#endif
+
+#ifdef BROWNIAN
+
+void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int* outtimes){
+
+	Vec dW;
+	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
+
+	float dist;
+	int mask;
+	dW.setX(norm(rng));
+	dW.setY(norm(rng));
+	RK_move(velgrid,0,dW);
+
+	dist = haversine(this->pos0);
+	mask = (dist < -100.0) ? 1 : 0;
+	this->distances[0] = (1-mask)*pow(R*dist/180*M_PI/1000,2) +
+							mask*(-999.0); 
+
+	for(int i=0;i<NTIMES-1;i++){
+		for(int t=outtimes[i];t<outtimes[i+1];t++){
+			dW.setX(norm(rng));
+			dW.setY(norm(rng));
+			RK_move(velgrid,t,dW);
+		}
+		dist = haversine(this->pos0);
+		mask = (dist < -100.0) ? 1 : 0;
+		this->distances[i+1] = (1-mask)*pow(R*dist/180*M_PI/1000,2) +
+								mask*(-999.0);
+	}
+
+	for(int t=outtimes[NTIMES-2];t<outtimes[NTIMES-1];t++){
+		dW.setX(norm(rng));
+		dW.setY(norm(rng));
+		RK_move(velgrid,t,dW);
+	}
+
+	dist = haversine(this->pos0);
+	mask = (dist < -100.0) ? 1 : 0;
+	this->distances[NTIMES-1] = (1-mask)*pow(R*dist/180*M_PI/1000,2) +
+							mask*(-999.0);
+
+	
+}
+
 #endif

@@ -19,6 +19,9 @@ int main(){
 	#ifdef SST
 		Grid grid = Grid(myparams.r,myparams.v,myparams.sstbeg,myparams.sstend);
 	#endif
+	#ifdef BROWNIAN
+		Grid grid = Grid(myparams.r,myparams.v);
+	#endif
 	
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_init = std::chrono::duration<double, std::milli>(t_end-t_start).count();

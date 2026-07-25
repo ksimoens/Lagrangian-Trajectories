@@ -1,7 +1,7 @@
 #Total number of years to integrate.
-#OPT += -DNYEAR=1
+OPT += -DNYEAR=1
 #Total number of months to integrate.
-OPT += -DNMONTH=1
+#OPT += -DNMONTH=2
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
@@ -9,13 +9,13 @@ OPT += -DDTSTART=15
 #Number of particles.
 OPT += -DNPART=10
 #Starting year.
-OPT += -DYSTART=2026
+OPT += -DYSTART=2020
 #Starting month.
-OPT += -DMSTART=3
+OPT += -DMSTART=1
 #Diffusion constant.
 OPT += -DD=0.0
 #Timestep (seconds)
-OPT += -DDT=3600.0
+OPT += -DDT=86400.0
 #Shape of velocity grid.
 OPT += -DNLON=420
 OPT += -DNLAT=240
@@ -26,15 +26,16 @@ OPT += -DLONRES=0.004363323
 OPT += -DLATMIN=0.1767146
 OPT += -DLATMAX=1.219549
 OPT += -DLATRES=0.004363323
-#OPT += -DDAY
-OPT += -DHOUR
+OPT += -DDAY
+#OPT += -DHOUR
 #Particle properties.
 #OPT += -DSTOREPOS
 #OPT += -DSTOREVEL
 #OPT += -DCIRCULAR
 #OPT += -DNETWORK
 #OPT += -DLYAPUNOV
-OPT += -DSST
+#OPT += -DSST
+OPT += -DBROWNIAN
 #Network properties.
 OPT += -DNCELL=385
 OPT += -DNSIDE=64
@@ -44,12 +45,18 @@ OPT += -DNETLATMIN=0.4493061
 OPT += -DNETLATMAX=0.9618006
 #Lyapunov properties.
 #OPT += -DDEND=1.0
+#Brownian properties.
+OPT += -DNTIMES=11
 #Output grid (Lyapunov / SST / Brownian)
-OPT += -DOUTLONMIN=-1.568614665
-OPT += -DOUTLONMAX=0.259617726
+#OPT += -DOUTLONMIN=-1.568614665
+OPT += -DOUTLONMIN=-1.0471975512
+#OPT += -DOUTLONMAX=0.259617726
+OPT += -DOUTLONMAX=-0.69813170079
 OPT += -DOUTLONRES=0.004363323
-OPT += -DOUTLATMIN=0.1767146
-OPT += -DOUTLATMAX=1.219549
+#OPT += -DOUTLATMIN=0.1767146
+OPT += -DOUTLATMIN=0.52359877559
+#OPT += -DOUTLATMAX=1.219549
+OPT += -DOUTLATMAX=0.78539816339
 OPT += -DOUTLATRES=0.004363323
 #Shape of SST data grid
 OPT += -DSSTGRIDNLON=840

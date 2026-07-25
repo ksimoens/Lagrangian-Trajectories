@@ -18,6 +18,7 @@ class Grid{
 		std::set<int> IDvec;
 		float* SSTbeg;
 		float* SSTend;
+		int* outtimes;
 		
 		void fill_vels(std::string veldir);
 		void initial_particles();
@@ -37,7 +38,6 @@ class Grid{
 		#endif
 
 		#if defined(LYAPUNOV) || defined(SST)
-			float haversine(Vec pos0,Vec pos1);
 			float euclidean(Vec pos0,Vec pos1);
 		#endif
 
@@ -57,6 +57,9 @@ class Grid{
 		#endif
 		#ifdef SST
 			Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddir);
+		#endif
+		#ifdef BROWNIAN
+			Grid(float r,std::string veldir);
 		#endif
 		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTbeg; delete[] SSTend; particles=0; vels=0; network=0; SSTbeg=0; SSTend=0;};
 

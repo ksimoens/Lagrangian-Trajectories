@@ -98,6 +98,48 @@ Grid::Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddi
 }
 #endif
 
+#ifdef BROWNIAN
+Grid::Grid(float r,std::string veldir){
+
+	this->outtimes = new int[NTIMES];
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+		float dt = log10(NYEAR*365)/(NTIMES-1);
+		for(int i=0;i<NTIMES;i++){
+			this->outtimes[i] = (int)floor(pow(10,i*dt)+0.5);
+		}
+	#elif HOUR
+		this->Nstart = 1;
+		int endyear = YSTART;
+		int endmonth = MSTART;
+		for(int i=0;i<NMONTH;i++){
+			endmonth++;
+			if(endmonth > 12){
+				endmonth = 1;
+				endyear++;
+			}
+		}
+		this->vels = new Vec[NLON*NLAT*calc_nhours(endmonth,endyear)]();
+		float dt = log10(NMONTH*28*24)/(NTIMES-1);
+		for(int i=0;i<NTIMES;i++){
+			this->outtimes[i] = (int)floor(pow(10,i*dt)+0.5);
+		}
+	#endif
+	
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	this->particles = new Particle[(nlon-2)*(nlat-2)*NPART]();
+	this->radius = r;
+	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
+	fill_vels(veldir);
+	initial_particles();
+
+}
+#endif
+
 #ifdef DAY
 size_t Grid::calc_ndays(int current_year){
 
@@ -115,7 +157,7 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
-#elif HOUR
+#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV))
 size_t Grid::calc_nhours(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -148,7 +190,7 @@ size_t Grid::calc_nhours(int current_month,int current_year){
 			(month_i == 7) || (month_i == 8) || (month_i == 10) ||
 			(month_i == 12)){
 			nhour += 24*31;
-		} else if((month_i != 2)){
+		} else if((month_i == 2)){
 			if((year_i % 4 == 0) & (year_i != 2000)){
 				nhour += 24*29;
 			} else{
@@ -167,6 +209,41 @@ size_t Grid::calc_nhours(int current_month,int current_year){
 	return(nhour);
 
 }
+
+#elif defined(HOUR) & defined(BROWNIAN)
+
+size_t Grid::calc_nhours(int current_month,int current_year){
+
+	size_t nhour = 0;
+
+	int month_i = MSTART;
+	int year_i = YSTART;
+
+	while((month_i != current_month) || (year_i != current_year)){
+		if((month_i == 1) || (month_i == 3) || (month_i == 5) ||
+			(month_i == 7) || (month_i == 8) || (month_i == 10) ||
+			(month_i == 12)){
+			nhour += 24*31;
+		} else if((month_i == 2)){
+			if((year_i % 4 == 0) & (year_i != 2000)){
+				nhour += 24*29;
+			} else{
+				nhour += 24*28;
+			}
+		} else{
+			nhour += 24*30;
+		}
+		month_i++;
+		if(month_i > 12){
+			month_i = 1;
+			year_i++;
+		}
+	}
+
+	return(nhour);
+
+}
+
 #endif
 
 void Grid::fill_vels(std::string veldir){
@@ -175,7 +252,8 @@ void Grid::fill_vels(std::string veldir){
 		for(int i=0;i<NYEAR+NYEARSTART;i++){
 			fill_vels_year(i,veldir);
 		}
-	#elif HOUR
+	#endif
+	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV))
 		
 		int vec_month[NMONTH];
 		int vec_year[NMONTH];
@@ -197,6 +275,22 @@ void Grid::fill_vels(std::string veldir){
 
 		for(int i=0;i < NMONTH;i++){
 			fill_vels_month(vec_year[i],vec_month[i],veldir);
+		}
+
+	#endif
+
+	#if defined(HOUR) & defined(BROWNIAN)
+
+		int year_i = YSTART;
+		int month_i = MSTART;
+
+		for(int i=0;i < NMONTH;i++){
+			fill_vels_month(year_i,month_i,veldir);
+			month_i++;
+			if(month_i > 12){
+				month_i = 1;
+				year_i++;
+			}
 		}
 
 	#endif
@@ -253,7 +347,11 @@ void Grid::fill_vels_year(int year,std::string veldir){
 void Grid::fill_vels_month(int year,int month,std::string veldir){
 
 	size_t nhour;
-	size_t nhour_before = calc_nhours(month-1,year);
+	#if defined(SST) || defined(LYAPUNOV)
+		size_t nhour_before = calc_nhours(month-1,year);
+	#elif defined(BROWNIAN)
+		size_t nhour_before = calc_nhours(month,year);
+	#endif
 
 	if((month == 1) || (month == 3) || (month == 5) ||
 		(month == 7) || (month == 8) || (month == 10) ||
@@ -379,7 +477,7 @@ void Grid::initial_particles(){
 
 	#endif
 
-	#ifdef SST
+	#if defined(SST) || defined(BROWNIAN)
 
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
@@ -405,6 +503,8 @@ void Grid::initial_particles(){
 	}
 
 	#endif
+
+
 
 }
 
@@ -532,14 +632,14 @@ void Grid::do_simulation(){
 			}
 
 		#endif
-		#ifdef SST
+		#if defined(SST) || defined(BROWNIAN)
 			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 			#pragma omp for
 			for(int j=0;j<((nlon-2)*(nlat-2)*NPART);j++){
 			//for(int j=0;j<1000;j++){
 					//std::cout << j << std::endl;
-					this->particles[j].make_trajectory(this->vels,rng);
+					this->particles[j].make_trajectory(this->vels,rng,this->outtimes);
 			}
 
 		#endif
@@ -547,22 +647,6 @@ void Grid::do_simulation(){
 }
 
 #if defined(LYAPUNOV) || defined(SST)
-float Grid::haversine(Vec pos0,Vec pos1){
-
-	int mask0 = (pos0.getX() < -100.0) ? 1 : 0;
-	int mask1 = (pos1.getX() < -100.0) ? 1 : 0;
-
-	float dlon = pos0.getX()-pos1.getX();
-	float lat0 = lat_mu(pos0.getY());
-	float lat1 = lat_mu(pos1.getY());
-	float dlat = lat1-lat0;
-
-	float a = sin(dlat/2)*sin(dlat/2)+cos(lat0)*cos(lat1)*sin(dlon/2)*sin(dlon/2);
-
-	return(2.0*atan2(sqrt(a),sqrt(1-a))/M_PI*180.0*(1-mask0)*(1-mask1)+
-			(-999.0)*((1-mask0)*mask1+(1-mask1)*mask0+mask1*mask0));
-
-}
 
 float Grid::euclidean(Vec pos0,Vec pos1){
 
@@ -1096,7 +1180,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				for(int j=0;j<NPART;j++){
 
-					dist_j = haversine(pos0,this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].getPos());
+					dist_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].haversine(pos0);
 					mask_dist = (dist_j < -100.0) ? 1 : 0;
 					s_dist += (1-mask_dist)*dist_j;
 					s2_dist += (1-mask_dist)*pow(dist_j,2);
@@ -1137,6 +1221,178 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
 	data.putAtt("number of particles per release",std::to_string(NPART));
 	data.putAtt("starting date","31-03-2026");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#endif
+
+#ifdef BROWNIAN
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Brownian motion in the Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","BROWNIAN");
+
+	netCDF::NcDim lonDim = data.addDim("lon", (nlon-2));
+	netCDF::NcDim latDim = data.addDim("lat", (nlat-2));
+	netCDF::NcDim timeDim = data.addDim("time",(NTIMES));
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(timeDim);
+	dimVector.push_back(latDim);
+	dimVector.push_back(lonDim);
+
+	std::vector<netCDF::NcDim> dimVector_lon;
+	dimVector_lon.push_back(lonDim);
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+	std::vector<netCDF::NcDim> dimVector_time;
+	dimVector_time.push_back(timeDim);
+
+	netCDF::NcVar lonVar = data.addVar("lon", netCDF::ncFloat, dimVector_lon);
+	lonVar.putAtt("units", "degrees");
+	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	latVar.putAtt("units", "degrees");
+	float vec_lon[(nlon-2)];
+	float vec_lat[(nlat-2)];
+	
+	for(int j=1;j<(nlon-1);j++){
+		vec_lon[j-1] = (OUTLONMIN+j*OUTLONRES)/M_PI*180;
+	}
+	for(int j=1;j<(nlat-1);j++){
+		vec_lat[j-1] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
+	}
+
+	std::vector<size_t> startp_lon,countp_lon;
+	startp_lon.push_back(0);
+	countp_lon.push_back((nlon-2));
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back((nlat-2));
+	lonVar.putVar(startp_lon,countp_lon,vec_lon);
+	latVar.putVar(startp_lat,countp_lat,vec_lat);
+
+	netCDF::NcVar timeVar = data.addVar("time", netCDF::ncInt, dimVector_time);
+	#ifdef HOUR
+		timeVar.putAtt("units", "hours");
+	#endif
+	#ifdef DAY
+		timeVar.putAtt("units", "days");
+	#endif
+	int vec_time[NTIMES];
+
+	for(int i=0;i<NTIMES;i++){
+		vec_time[i] = this->outtimes[i];
+	}
+
+	std::vector<size_t> startp_time,countp_time;
+	startp_time.push_back(0);
+	countp_time.push_back(NTIMES);
+	timeVar.putVar(startp_time,countp_time,vec_time);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(NTIMES);
+	countp.push_back(nlat-2);
+	countp.push_back(nlon-2);
+
+	netCDF::NcVar meandistVar = data.addVar("meandistance", netCDF::ncFloat, dimVector);
+	meandistVar.putAtt("units", "kilometres squared");
+	
+	float mat_meandist[NTIMES][(nlat-2)][(nlon-2)];
+	float s_dist[NTIMES];
+	int mask_dist;
+	int c_dist[NTIMES];
+	float dist_j;
+
+	for(int i=0;i<NTIMES;i++){
+		s_dist[i] = 0.0;
+		c_dist[i] = 0;
+	}
+
+	//#pragma omp parallel for
+	for(int ilat=1;ilat<(nlat-1);ilat++){
+		for(int ilon=1;ilon<(nlon-1);ilon++){
+
+				for(int j=0;j<NPART;j++){
+
+					for(int t=0;t<NTIMES;t++){
+
+						dist_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].getDistances()[t];
+						mask_dist = (dist_j < -100.0) ? 1 : 0;
+						s_dist[t] += (1-mask_dist)*dist_j;
+						c_dist[t] += (1-mask_dist); 
+
+					} 
+
+				}
+
+				for(int t=0;t<NTIMES;t++){
+					mask_dist = (c_dist[t] < (int)(NPART/10)) ? 1 : 0;
+					c_dist[t] = (mask_dist == 1) ? 1 : c_dist[t];
+					mat_meandist[t][ilat-1][ilon-1] = (1-mask_dist)*s_dist[t]/c_dist[t] + (-999.0)*mask_dist;
+					s_dist[t] = 0.0;
+					c_dist[t] = 0;
+				}			
+
+		}
+	}	
+
+				
+	meandistVar.putVar(startp,countp,mat_meandist);
+
+	#ifdef HOUR
+	std::string monthstr;
+	if(NMONTH==1){
+		monthstr = "month";
+	} else{
+		monthstr = "months";
+	}
+	#endif
+	#ifdef DAY
+	std::string yearstr;
+	if(NYEAR==1){
+		yearstr = "year";
+	} else{
+		yearstr = "years";
+	}
+	#endif
+	
+	#ifdef HOUR
+		data.putAtt("length of trajectories",std::to_string(NMONTH)+" "+monthstr);
+	#endif
+	#ifdef DAY
+		data.putAtt("length of trajectories",std::to_string(NYEAR)+" "+yearstr);
+	#endif
+	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
+	data.putAtt("number of particles per release",std::to_string(NPART));
+	#ifdef HOUR
+		size_t n_zero = 2;
+		std::string mstr = std::to_string(MSTART);
+		mstr = std::string(n_zero - std::min(n_zero, mstr.length()), '0') + mstr;
+		data.putAtt("starting date","01-"+mstr+"-"+std::to_string(YSTART));
+	#endif
+	#ifdef DAY
+		data.putAtt("starting date","01-01-"+std::to_string(YSTART));
+	#endif
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();

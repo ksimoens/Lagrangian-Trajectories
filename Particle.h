@@ -15,12 +15,14 @@ class Particle{
 		Vec* vecintervel{};
 		Vec* posintermed{};
 		int starttime{};
+		Vec pos0{};
+		float* distances{};
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		#ifdef SST
+		#if defined(SST) || defined(BROWNIAN)
 			float fun_x(float lon,float lat);
 			float fun_y(float lat);
 		#endif
@@ -30,6 +32,9 @@ class Particle{
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int k,int t);
 		void RK_move(Vec* velgrid, int t,Vec dW);
 		void update_pos(float K,Vec dW);
+		#if defined(SST) || defined(BROWNIAN)
+			float haversine(Vec pos1);
+		#endif
 
 		#ifdef NETWORK
 			struct hlp_coord{
@@ -53,11 +58,15 @@ class Particle{
 		~Particle(){delete[] path_vel;path_vel=0;delete[] path_pos;path_pos=0;
 					delete[] velmask;velmask=0;delete[] vecnum;vecnum=0;
 					delete[] vecintervel;vecintervel=0;
-					delete[] posintermed;posintermed=0;};
+					delete[] posintermed;posintermed=0;
+					delete[] distances;distances=0;};
 
 		Vec getPos(){return pos;};
 		Vec* getPathPos(){return path_pos;};
 		Vec* getPathVel(){return path_vel;};
+		#ifdef BROWNIAN
+			float* getDistances(){return this->distances;};
+		#endif
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
@@ -68,8 +77,12 @@ class Particle{
 
 		#ifdef NETWORK
 			void make_trajectory(Vec* velgrid, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);
-		#else
+		#endif
+		#if defined(CIRCULAR) || defined(LYAPUNOV) || defined(SST)
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng);
+		#endif
+		#ifdef BROWNIAN
+			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int* outtimes);
 		#endif
 
 		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0);
