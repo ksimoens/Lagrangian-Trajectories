@@ -288,7 +288,7 @@ void Grid::fill_vels(std::string veldir){
 			fill_vels_year(i,veldir);
 		}
 	#endif
-	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV))
+	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST))
 		
 		int vec_month[NMONTH];
 		int vec_year[NMONTH];
@@ -710,6 +710,20 @@ void Grid::do_simulation(){
 			}
 
 		#endif
+
+		#ifdef LYAPSST
+
+			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+			int ntime = (int)calc_nhours(MSTART,YSTART);
+			#pragma omp for
+			for(int j=0;j<((nlon-2)*(nlat-2));j++){
+			//for(int j=0;j<1000;j++){
+					//std::cout << j << std::endl;
+					this->particles[j].make_trajectory(this->vels,this->SSTs,rng,ntime);
+			}
+
+		#endif
 	}
 }
 
@@ -729,6 +743,22 @@ float Grid::euclidean(Vec pos0,Vec pos1){
 			(-999.0)*((1-mask0)*mask1+(1-mask1)*mask0+mask1*mask0));
 
 }
+#endif
+
+#ifdef LYAPSST
+	
+float Grid::get_SSTdiff(float SST0,float SST1){
+
+	int mask0 = (SST0 > -100.0) ? 0 : 1;
+	int mask1 = (SST1 > -100.0) ? 0 : 1; 
+
+	float dSST = abs(SST0-SST1);
+
+	return(mask0*(1-mask1)*(-999.0) + (1-mask0)*(mask1)*(-999.0) +
+			mask0*mask1*(-999.0) + (1-mask0)*(1-mask1)*dSST);
+
+}
+
 #endif
 
 #ifdef CIRCULAR
@@ -1229,7 +1259,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				Particle p0 = Particle();
 				p0.get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0,0,0,0);
-				float temp_0 = p0.interpol(this->SSTbeg);
+				float temp_0 = p0.interpol(this->SSTbeg,0);
 
 				float s_dist = 0.0;
 				float s2_dist = 0.0;
@@ -1241,7 +1271,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				int c_dist = 0;
 				int mask_sst = 0;
 				int c_sst = 0;
-				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend);
+				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
 				Vec pos0 = Vec(OUTLONMIN+ilon*OUTLONRES,mu_lat(OUTLATMIN+ilat*OUTLATRES));
 				float dist_j,temp_j;
 
@@ -1253,7 +1283,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					s2_dist += (1-mask_dist)*pow(dist_j,2);
 					c_dist += (1-mask_dist); 
 
-					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend);
+					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
 					mask_sst = (temp_j < -100.0) ? 1 : 0;
 					s_sst += (1-mask_sst)*temp_j;
 					s_shift_sst += (1-mask_sst)*(temp_j-shift_sst);
@@ -1461,6 +1491,143 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 		data.putAtt("starting date","01-01-"+std::to_string(YSTART));
 	#endif
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#endif
+
+#ifdef LYAPSST
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","SST Lyapunov Exponents Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","Lyapunov");
+
+	netCDF::NcDim lonDim = data.addDim("lon", (nlon-4));
+	netCDF::NcDim latDim = data.addDim("lat", (nlat-4));
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(latDim);
+	dimVector.push_back(lonDim);
+
+	std::vector<netCDF::NcDim> dimVector_lon;
+	dimVector_lon.push_back(lonDim);
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+
+	netCDF::NcVar lonVar = data.addVar("lon", netCDF::ncFloat, dimVector_lon);
+	lonVar.putAtt("units", "degrees");
+	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	latVar.putAtt("units", "degrees");
+	float vec_lon[(nlon-4)];
+	float vec_lat[(nlat-4)];
+	
+	for(int j=2;j<(nlon-2);j++){
+		vec_lon[j-2] = (OUTLONMIN+j*OUTLONRES)/M_PI*180;
+	}
+	for(int j=2;j<(nlat-2);j++){
+		vec_lat[j-2] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
+	}
+
+	std::vector<size_t> startp_lon,countp_lon;
+	startp_lon.push_back(0);
+	countp_lon.push_back((nlon-4));
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back((nlat-4));
+	lonVar.putVar(startp_lon,countp_lon,vec_lon);
+	latVar.putVar(startp_lat,countp_lat,vec_lat);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(nlat-4);
+	countp.push_back(nlon-4);
+
+	netCDF::NcVar distVar = data.addVar("lyapunov", netCDF::ncFloat, dimVector);
+	distVar.putAtt("units", "1/days");
+	float mat_tau[(nlat-4)][(nlon-4)];
+
+	#pragma omp parallel for
+	for(int ilat=2;ilat<(nlat-2);ilat++){
+		for(int ilon=2;ilon<(nlon-2);ilon++){
+
+				float diff0[4];
+				diff0[0] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[NMONTH*28],
+										this->particles[(ilon-2)+(nlon-2)*(ilat-1)].getPathSST()[NMONTH*28]);
+				diff0[1] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[NMONTH*28],
+										this->particles[(ilon-1)+(nlon-2)*(ilat)].getPathSST()[NMONTH*28]);
+				diff0[2] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[NMONTH*28],
+										this->particles[(ilon)+(nlon-2)*(ilat-1)].getPathSST()[NMONTH*28]);
+				diff0[3] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[NMONTH*28],
+										this->particles[(ilon-1)+(nlon-2)*(ilat-2)].getPathSST()[NMONTH*28]);
+
+				float vec_dist[4];
+				int vec_tau[4];
+				for(int x=0;x<4;x++){
+					vec_tau[x] = -999;
+				}
+				int sum_tau = 0;
+				int c = 0;
+				int mask;
+
+				for(int t=NMONTH*28-1;t >= 0;t--){
+
+					vec_dist[0] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[t],
+												this->particles[(ilon-2)+(nlon-2)*(ilat-1)].getPathSST()[t]);
+					vec_dist[1] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[t],
+												this->particles[(ilon-1)+(nlon-2)*(ilat)].getPathSST()[t]);
+					vec_dist[2] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[t],
+												this->particles[(ilon)+(nlon-2)*(ilat-1)].getPathSST()[t]);
+					vec_dist[3] = get_SSTdiff(this->particles[(ilon-1)+(nlon-2)*(ilat-1)].getPathSST()[t],
+												this->particles[(ilon-1)+(nlon-2)*(ilat-2)].getPathSST()[t]);
+
+					for(int x=0;x<4;x++){
+						if((vec_tau[x] < -100) & (vec_dist[x] > -100.0) & (vec_dist[x] > SCALEFACTOR*diff0[x]) ){
+							vec_tau[x] = NMONTH*28-t;
+						}
+					}
+
+				}
+
+				for(int x=0;x<4;x++){
+					mask = (vec_tau[x] < -100) ? 1 : 0;
+					sum_tau += (1-mask)*vec_tau[x];
+					c += (1-mask);
+				}
+
+				mask = (c == 0) ? 1 : 0;
+				sum_tau = (mask == 1) ? 1 : sum_tau; 
+
+				mat_tau[ilat-2][ilon-2] = log(SCALEFACTOR)*c/sum_tau*(1-mask) +
+						(-999.0)*mask;
+
+		}
+	}	
+
+				
+	distVar.putVar(startp,countp,mat_tau);
+				
+	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
+	data.putAtt("number of particles per release",std::to_string((nlon-2)*(nlat-2)));
+	data.putAtt("starting date","31-03-2026");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	data.putAtt("final distance scaling factor",std::to_string(SCALEFACTOR));
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
 	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");

@@ -74,8 +74,8 @@ class Particle{
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
 		
-		#ifdef SST
-			float interpol(float* SSTgrid);
+		#if defined(SST) || defined(LYAPSST)
+			float interpol(float* SSTgrid,int t);
 		#endif
 
 		#ifdef NETWORK
@@ -86,6 +86,9 @@ class Particle{
 		#endif
 		#ifdef BROWNIAN
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int* outtimes);
+		#endif
+		#ifdef LYAPSST
+			void make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int Ntime);
 		#endif
 
 		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0);

@@ -48,6 +48,7 @@ class Grid{
 
 		#ifdef LYAPSST
 			void fill_SSTs(std::string SSTbegdir);
+			float get_SSTdiff(float SST0,float SST1);
 		#endif
 
 	public:

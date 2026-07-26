@@ -266,7 +266,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST)
 		n = -1;
 	#endif
 
@@ -317,7 +317,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST)
 		n = -1;
 	#endif
 
@@ -344,9 +344,9 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 }
 
-#ifdef SST
+#if defined(SST) || defined(LYAPSST)
 
-float Particle::interpol(float* sstgrid){
+float Particle::interpol(float* sstgrid,int t){
 
 	int i = get_lon_index(this->pos,SSTGRIDLONMIN,SSTGRIDLONMAX,SSTGRIDLONRES);
 	int j = get_lat_index(lat_mu(this->pos.getY()),SSTGRIDLATMIN,SSTGRIDLATMAX,SSTGRIDLATRES);
@@ -367,10 +367,10 @@ float Particle::interpol(float* sstgrid){
 	float y1 = mu_lat(SSTGRIDLATMIN+SSTGRIDLATRES*j);
 	float y2 = mu_lat(y1+SSTGRIDLATRES);
 
-	edges[0] = sstgrid[i+SSTGRIDNLON*(j)];
-	edges[1] = sstgrid[i+SSTGRIDNLON*(j+1)];
-	edges[2] = sstgrid[(i+1)+SSTGRIDNLON*(j+1)];
-	edges[3] = sstgrid[(i+1)+SSTGRIDNLON*(j)];
+	edges[0] = sstgrid[i+SSTGRIDNLON*(j+SSTGRIDNLAT*t)];
+	edges[1] = sstgrid[i+SSTGRIDNLON*(j+1+SSTGRIDNLAT*t)];
+	edges[2] = sstgrid[(i+1)+SSTGRIDNLON*(j+1+SSTGRIDNLAT*t)];
+	edges[3] = sstgrid[(i+1)+SSTGRIDNLON*(j+SSTGRIDNLAT*t)];
 
 	for(int i=0;i<4;i++){
 		mask_all += (edges[i] < -100.0) ? 1 : 0;
@@ -792,4 +792,29 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int* outtimes){
 	
 }
 
+#endif
+
+#ifdef LYAPSST
+void Particle::make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int Ntime){
+
+	Vec dW;
+	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
+	
+	this->path_SST[NMONTH*28] = interpol(SSTs,(182-1));
+
+	for(int day=1;day<NMONTH*28+1;day++){
+
+		for(int hour=0;hour<24;hour++){
+
+			dW.setX(norm(rng));
+			dW.setY(norm(rng));
+			RK_move(velgrid,Ntime-(day-1)*24-hour-1,dW);
+
+		}
+
+		this->path_SST[NMONTH*28-day] = interpol(SSTs,(182-1)-day);
+
+	}
+
+}
 #endif
