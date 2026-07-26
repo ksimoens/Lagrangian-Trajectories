@@ -17,6 +17,8 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 	this->pos0 = Vec(x0,y0);
 	this->radius = r;
 	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
 	this->SSTs = 0;
 
 	fill_vels(veldir);
@@ -38,6 +40,8 @@ Grid::Grid(float x0,float y0,std::string veldir,std::string netdir){
 	//velslice = new Vec[NLON*NLAT*2]();
 	this->particles = new Particle[NPART*Nstart]();
 	this->pos0 = Vec(x0,y0);
+	this->SSTbeg = 0;
+	this->SSTend = 0;
 	this->SSTs = 0;
 
 	this->network = new int[NPART*this->Nstart*NCELL]();
@@ -65,6 +69,9 @@ Grid::Grid(std::string veldir){
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 	this->particles = new Particle[(nlon-2)*(nlat-2)]();
 	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
+	this->SSTs = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -90,6 +97,7 @@ Grid::Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddi
 	this->network = 0;
 	this->SSTbeg = new float[SSTGRIDNLON*SSTGRIDNLAT];
 	this->SSTend = new float[SSTGRIDNLON*SSTGRIDNLAT];
+	this->SSTs = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -134,8 +142,35 @@ Grid::Grid(float r,std::string veldir){
 	this->network = 0;
 	this->SSTbeg = 0;
 	this->SSTend = 0;
+	this->SSTs = 0;
 	fill_vels(veldir);
 	initial_particles();
+
+}
+#endif
+
+#ifdef LYAPSST
+Grid::Grid(std::string veldir,std::string SSTbegdir){
+
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elif HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
+	#endif
+	
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	this->particles = new Particle[(nlon-2)*(nlat-2)]();
+	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
+	this->SSTs = new float[SSTGRIDNLON*SSTGRIDNLAT*182];
+
+	fill_vels(veldir);
+	initial_particles();
+	fill_SSTs(SSTbegdir);
 
 }
 #endif
@@ -157,7 +192,7 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
-#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV))
+#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST))
 size_t Grid::calc_nhours(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -347,7 +382,7 @@ void Grid::fill_vels_year(int year,std::string veldir){
 void Grid::fill_vels_month(int year,int month,std::string veldir){
 
 	size_t nhour;
-	#if defined(SST) || defined(LYAPUNOV)
+	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST)
 		size_t nhour_before = calc_nhours(month-1,year);
 	#elif defined(BROWNIAN)
 		size_t nhour_before = calc_nhours(month,year);
@@ -458,7 +493,7 @@ void Grid::initial_particles(){
 	}
 	#endif
 
-	#ifdef LYAPUNOV
+	#if defined(LYAPUNOV) || defined(LYAPSST)
 
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
@@ -593,6 +628,38 @@ void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 		}
 	}
      
+
+}
+
+#endif
+
+#ifdef LYAPSST
+
+void Grid::fill_SSTs(std::string SSTbegdir){
+
+	float grid_SST[SSTGRIDNLAT][SSTGRIDNLON];
+	netCDF::NcFile dataFilebeg(SSTbegdir+".nc", netCDF::NcFile::read);
+	netCDF::NcVar SSTVar;
+	SSTVar = dataFilebeg.getVar("SST");
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(SSTGRIDNLAT);
+	countp.push_back(SSTGRIDNLON);
+     
+    for(int day=0;day<182;day++){
+    	startp[0]=day;
+    	SSTVar.getVar(startp,countp,grid_SST);
+		for(int ilon=0;ilon<SSTGRIDNLON;ilon++){
+			for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+				this->SSTs[ilon+SSTGRIDNLON*(ilat+SSTGRIDNLAT*day)] = 
+					grid_SST[ilat][ilon];
+			}
+		}
+	}     
 
 }
 

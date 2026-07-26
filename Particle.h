@@ -17,6 +17,7 @@ class Particle{
 		int starttime{};
 		Vec pos0{};
 		float* distances{};
+		float* path_SST{};
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
@@ -59,11 +60,13 @@ class Particle{
 					delete[] velmask;velmask=0;delete[] vecnum;vecnum=0;
 					delete[] vecintervel;vecintervel=0;
 					delete[] posintermed;posintermed=0;
-					delete[] distances;distances=0;};
+					delete[] distances;distances=0;
+					delete[] path_SST;path_SST=0;};
 
 		Vec getPos(){return pos;};
 		Vec* getPathPos(){return path_pos;};
 		Vec* getPathVel(){return path_vel;};
+		float* getPathSST(){return path_SST;};
 		#ifdef BROWNIAN
 			float* getDistances(){return this->distances;};
 		#endif

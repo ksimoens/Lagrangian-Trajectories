@@ -18,6 +18,7 @@ class Grid{
 		std::set<int> IDvec;
 		float* SSTbeg;
 		float* SSTend;
+		float* SSTs;
 		int* outtimes;
 		
 		void fill_vels(std::string veldir);
@@ -45,6 +46,10 @@ class Grid{
 			void fill_SSTs(std::string SSTbegdir,std::string SSTenddir);
 		#endif
 
+		#ifdef LYAPSST
+			void fill_SSTs(std::string SSTbegdir);
+		#endif
+
 	public:
 		#ifdef CIRCULAR
 			Grid(float x0,float y0,float r,std::string veldir);
@@ -61,7 +66,10 @@ class Grid{
 		#ifdef BROWNIAN
 			Grid(float r,std::string veldir);
 		#endif
-		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTbeg; delete[] SSTend; particles=0; vels=0; network=0; SSTbeg=0; SSTend=0;};
+		#ifdef LYAPSST
+			Grid(std::string veldir,std::string SSTbegdir);
+		#endif
+		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTbeg; delete[] SSTend; delete[] SSTs; particles=0; vels=0; network=0; SSTbeg=0; SSTend=0; SSTs=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};

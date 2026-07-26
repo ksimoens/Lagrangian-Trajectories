@@ -40,6 +40,10 @@ Particle::Particle(){
 		}
 		this->pos0 = Vec(0.0,0.0);
 	#endif
+
+	#ifdef LYAPSST
+		this->path_SST = new float[NMONTH*28+1];
+	#endif
 }
 
 Particle::Particle(float x0,float y0,int t0){
@@ -124,6 +128,11 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos0.setX(this->pos.getX());
 		this->pos0.setY(this->pos.getY());
 		this->starttime = t0;
+	#endif
+
+	#ifdef LYAPSST
+		this->pos.setX(pos0.getX());
+		this->pos.setY(pos0.getY());
 	#endif
 
 } 

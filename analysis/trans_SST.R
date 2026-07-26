@@ -1,7 +1,7 @@
 library(tidyverse)
 library(ncdf4)
 
-nc_SST <- nc_open("/media/kobe/shared/spectrum/SST/SST_2026_03_31.nc")
+nc_SST <- nc_open("/media/kobe/shared/spectrum/SST/SST_months.nc")
 
 mat_temp <- nc_SST %>% ncvar_get("to")
 mat_temp[is.na(mat_temp)] <- -999
@@ -13,8 +13,9 @@ nc_SST %>% nc_close()
 
 londim <- ncdim_def("lon","radians east",vec_lon)
 latdim <- ncdim_def("lat","radians north",vec_lat)
-SSTvar <- ncvar_def("SST","°C",list(londim,latdim),prec="float")
-nc_new <- nc_create("/media/kobe/shared/spectrum/SST/SST_2026_03_31_transf.nc",list(SSTvar),force_v4=TRUE)
+timedim <- ncdim_def("time","days",1:dim(mat_temp)[3])
+SSTvar <- ncvar_def("SST","°C",list(londim,latdim,timedim),prec="float")
+nc_new <- nc_create("/media/kobe/shared/spectrum/SST/SST_months_transf.nc",list(SSTvar),force_v4=TRUE)
 nc_new %>% ncvar_put(SSTvar,mat_temp)
 
 nc_new %>% nc_close()
