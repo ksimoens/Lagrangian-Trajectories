@@ -8,6 +8,7 @@ Particle::Particle(){
 	this->vecnum = new float[4];
 	this->vecintervel = new Vec[4];
 	this->posintermed = new Vec[3];
+	this->tau = -999;
 	for(int i=0;i<4;i++){
 		this->velmask[i] = 0;
 		this->vecnum[i] = 0.0;
@@ -135,6 +136,12 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setY(pos0.getY());
 	#endif
 
+	#ifdef LYAPCIRC
+		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
+		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
+		trans_pos();
+	#endif 
+
 } 
 
 // https://neacsu.net/geodesy/snyder/7-pseudocylindrical/sect_30/
@@ -157,7 +164,7 @@ float Particle::get_mu(float y0){
 
 }
 
-#if defined(SST) || defined(BROWNIAN)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC)
 
 float Particle::fun_x(float lon,float lat){
 

@@ -18,12 +18,13 @@ class Particle{
 		Vec pos0{};
 		float* distances{};
 		float* path_SST{};
+		int tau{};
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		#if defined(SST) || defined(BROWNIAN)
+		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC)
 			float fun_x(float lon,float lat);
 			float fun_y(float lat);
 		#endif
@@ -67,6 +68,7 @@ class Particle{
 		Vec* getPathPos(){return path_pos;};
 		Vec* getPathVel(){return path_vel;};
 		float* getPathSST(){return path_SST;};
+		int getTau(){return this->tau;};
 		#ifdef BROWNIAN
 			float* getDistances(){return this->distances;};
 		#endif

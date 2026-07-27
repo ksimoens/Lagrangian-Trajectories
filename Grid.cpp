@@ -20,6 +20,7 @@ Grid::Grid(float x0,float y0,float r,std::string veldir){
 	this->SSTbeg = 0;
 	this->SSTend = 0;
 	this->SSTs = 0;
+	this->vecR = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -43,6 +44,7 @@ Grid::Grid(float x0,float y0,std::string veldir,std::string netdir){
 	this->SSTbeg = 0;
 	this->SSTend = 0;
 	this->SSTs = 0;
+	this->vecR = 0;
 
 	this->network = new int[NPART*this->Nstart*NCELL]();
 	get_cell_ids(netdir);
@@ -72,6 +74,7 @@ Grid::Grid(std::string veldir){
 	this->SSTbeg = 0;
 	this->SSTend = 0;
 	this->SSTs = 0;
+	this->vecR = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -98,6 +101,7 @@ Grid::Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddi
 	this->SSTbeg = new float[SSTGRIDNLON*SSTGRIDNLAT];
 	this->SSTend = new float[SSTGRIDNLON*SSTGRIDNLAT];
 	this->SSTs = 0;
+	this->vecR = 0;
 
 	fill_vels(veldir);
 	initial_particles();
@@ -143,6 +147,8 @@ Grid::Grid(float r,std::string veldir){
 	this->SSTbeg = 0;
 	this->SSTend = 0;
 	this->SSTs = 0;
+	this->vecR = 0;
+
 	fill_vels(veldir);
 	initial_particles();
 
@@ -167,10 +173,44 @@ Grid::Grid(std::string veldir,std::string SSTbegdir){
 	this->SSTbeg = 0;
 	this->SSTend = 0;
 	this->SSTs = new float[SSTGRIDNLON*SSTGRIDNLAT*182];
+	this->vecR = 0;
 
 	fill_vels(veldir);
 	initial_particles();
 	fill_SSTs(SSTbegdir);
+
+}
+#endif
+
+#ifdef LYAPCIRC
+Grid::Grid(std::string veldir){
+
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elif HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
+	#endif
+	
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
+	this->SSTs = 0;
+	this->vecR = new float[NCIRC]();
+	float dlogR = 2.0/(NCIRC-1);
+	this->npart = 0;
+	for(int x=0;x<NCIRC;x++){
+		vecR[x] = pow(10,x*dlogR);
+		this->npart += (int)(vecR[x]*NPART+0.5);
+	}
+
+	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
+
+	fill_vels(veldir);
+	initial_particles();
 
 }
 #endif
@@ -192,7 +232,7 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
-#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST))
+#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC))
 size_t Grid::calc_nhours(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -382,7 +422,7 @@ void Grid::fill_vels_year(int year,std::string veldir){
 void Grid::fill_vels_month(int year,int month,std::string veldir){
 
 	size_t nhour;
-	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST)
+	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC)
 		size_t nhour_before = calc_nhours(month-1,year);
 	#elif defined(BROWNIAN)
 		size_t nhour_before = calc_nhours(month,year);
@@ -533,6 +573,36 @@ void Grid::initial_particles(){
 					float r2 = unif(rng);
 					this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),r1,r2,this->radius,0);
 				}
+			}
+		}
+	}
+
+	#endif
+
+	#ifdef LYAPCIRC
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	//#pragma omp parallel 
+	{
+		//#pragma omp for
+		int k = 0;
+		for(int ilat=1;ilat<(nlat-1);ilat++){
+			for(int ilon=1;ilon<(nlon-1);ilon++){
+				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,0.0,0.0,0);
+				int l = 1;
+				for(int ring=0;ring<NCIRC;ring++){
+					int nring = (int)(this->vecR[ring]*NPART+0.5);
+					float dtheta = 2.0*M_PI/nring;
+					for(int x=0;x<nring;x++){
+						this->particles[k*(this->npart+1)+l].get_initial_pos(
+							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,0.0,this->vecR[ring],0);
+						l++;
+					}
+				}
+				
+				k++;
 			}
 		}
 	}

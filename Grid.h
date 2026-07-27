@@ -20,6 +20,8 @@ class Grid{
 		float* SSTend;
 		float* SSTs;
 		int* outtimes;
+		float* vecR;
+		int npart;
 		
 		void fill_vels(std::string veldir);
 		void initial_particles();
@@ -58,7 +60,7 @@ class Grid{
 		#ifdef NETWORK
 			Grid(float x0,float y0,std::string veldir,std::string netdir);
 		#endif
-		#ifdef LYAPUNOV
+		#if defined(LYAPUNOV) || defined(LYAPCIRC)
 			Grid(std::string veldir);
 		#endif
 		#ifdef SST
@@ -70,7 +72,13 @@ class Grid{
 		#ifdef LYAPSST
 			Grid(std::string veldir,std::string SSTbegdir);
 		#endif
-		~Grid(){delete[] vels; delete[] network; delete[] particles; delete[] SSTbeg; delete[] SSTend; delete[] SSTs; particles=0; vels=0; network=0; SSTbeg=0; SSTend=0; SSTs=0;};
+		~Grid(){delete[] vels; vels = 0; 
+				delete[] network; network = 0; 
+				delete[] particles; particles = 0; 
+				delete[] SSTbeg; SSTbeg = 0; 
+				delete[] SSTend; SSTend = 0; 
+				delete[] SSTs; SSTs = 0;
+				delete[] vecR; vecR = 0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};
