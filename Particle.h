@@ -81,8 +81,11 @@ class Particle{
 		#ifdef NETWORK
 			void make_trajectory(Vec* velgrid, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);
 		#endif
-		#if defined(CIRCULAR) || defined(LYAPUNOV) || defined(SST)
+		#ifdef CIRCULAR
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng);
+		#endif
+		#if defined(LYAPUNOV) || defined(SST)
+			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int Ntime);
 		#endif
 		#ifdef BROWNIAN
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int* outtimes);

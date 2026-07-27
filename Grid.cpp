@@ -691,11 +691,12 @@ void Grid::do_simulation(){
 
 			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+			int ntime = (int)calc_nhours(MSTART,YSTART);
 			#pragma omp for
 			for(int j=0;j<((nlon-2)*(nlat-2));j++){
 			//for(int j=0;j<1000;j++){
 					//std::cout << j << std::endl;
-					this->particles[j].make_trajectory(this->vels,rng);
+					this->particles[j].make_trajectory(this->vels,rng,ntime);
 			}
 
 		#endif
@@ -1009,20 +1010,22 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	countp.push_back(nlat-4);
 	countp.push_back(nlon-4);
 
-	netCDF::NcVar distVar = data.addVar("tau", netCDF::ncInt, dimVector);
-	distVar.putAtt("units", "hours");
-	int mat_tau[(nlat-4)][(nlon-4)];
+	netCDF::NcVar distVar = data.addVar("lyapunov", netCDF::ncFloat, dimVector);
+	distVar.putAtt("units", "days");
+	float mat_lyap[(nlat-4)][(nlon-4)];
 
 	#pragma omp parallel for
 	for(int ilat=2;ilat<(nlat-2);ilat++){
 		for(int ilon=2;ilon<(nlon-2);ilon++){
 
 				float vec_dist[4];
+				int vec_tau[4];
+				for(int x=0;x<4;x++){
+					vec_tau[x] = -999;
+				}
 				int mask = 0;
-				float mean_dist = 0;
+				int sum_tau = 0;
 				int c = 0;
-
-				mat_tau[ilat-2][ilon-2] = -999;
 
 				for(int t=NMONTH*28*24;t >= 0;t--){
 
@@ -1036,36 +1039,31 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 											this->particles[(ilon-1)+(nlon-2)*(ilat-2)].getPathPos()[t]);
 
 					for(int x=0;x<4;x++){
-						mask = (vec_dist[x] < -100.0) ? 1 : 0;
-						mean_dist += vec_dist[x]*(1-mask);
-						c += (1-mask);
-					}
-					
-					mask = (c == 0) ? 1 : 0;
-					c = (c == 0) ? 1 : c;
-
-					if(mask == 1){
-						mat_tau[ilat-2][ilon-2] = -999;
-						mean_dist = 0.0;
-						c = 0;
-						break;
-					}else if(mean_dist/c > DEND){
-						mat_tau[ilat-2][ilon-2] = 28*24*NMONTH-t;
-						mean_dist = 0.0;
-						c = 0;
-						break;
-					}
-
-					mean_dist = 0.0;
-					c = 0;
+						if((vec_tau[x] < -100) & (vec_dist[x] > -100) & (vec_dist[x] > DEND)){
+							vec_tau[x] = NMONTH*28*24-t;
+						}
+					}					
 
 				}
+
+				for(int x=0;x<4;x++){
+					mask = (vec_tau[x] < -100) ? 1 : 0;
+					c += (1-mask);
+					sum_tau += (1-mask)*vec_tau[x];
+				}
+
+				mask = (c == 0) ? 1 : 0;
+				sum_tau = (mask == 1) ? 1 : sum_tau;
+
+				mat_lyap[ilat-2][ilon-2] = (1-mask)*log(DEND/OUTLONRES*M_PI/180.0)/sum_tau*c +
+							mask*(-999.0);
+
 
 		}
 	}	
 
 				
-	distVar.putVar(startp,countp,mat_tau);
+	distVar.putVar(startp,countp,mat_lyap);
 				
 	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
 	data.putAtt("number of particles per release",std::to_string((nlon-2)*(nlat-2)));

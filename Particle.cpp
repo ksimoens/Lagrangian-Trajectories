@@ -485,8 +485,6 @@ void Particle::RK_move(Vec* velgrid,int t,Vec dW){
 	
 	#ifdef STOREPOS
 		this->path_pos[t-this->starttime+1] = this->pos;
-	#elif LYAPUNOV
-		this->path_pos[t-1] = this->pos;
 	#endif 
 
 } 
@@ -716,20 +714,14 @@ void Particle::make_trajectory(Vec* velgrid,std::set<int> IDvec,int* network,int
 
 }
 
-#elif defined(LYAPUNOV) || defined(SST)
+#endif
+
+#ifdef CIRCULAR
 void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 
 	Vec dW;
 	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
 
-	#if defined(LYAPUNOV) || defined(SST)
-		for(int t=NMONTH*28*24;t > 0;t--){
-		//for(int t=NYEAR*30*24-1;t > 1500;t--){
-			dW.setX(norm(rng));
-			dW.setY(norm(rng));
-			RK_move(velgrid,t,dW);
-		}
-	#endif
 	#ifdef CIRCULAR
 		for(int t=0;t<NYEAR*365;t++){
 			dW.setX(norm(rng));
@@ -744,6 +736,25 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 		this->path_vel[NYEAR*365].setX(last_vel.getX());
 		this->path_vel[NYEAR*365].setY(last_vel.getY());
 	#endif
+
+}
+#endif
+
+#if defined(LYAPUNOV) || defined(SST)
+void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int Ntime){
+
+	Vec dW;
+	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
+
+	for(int t=Ntime-1;t > Ntime-NMONTH*28*24-1;t--){
+	//for(int t=NYEAR*30*24-1;t > 1500;t--){
+		dW.setX(norm(rng));
+		dW.setY(norm(rng));
+		RK_move(velgrid,t,dW);
+		#ifdef LYAPUNOV
+			this->path_pos[t-Ntime+NMONTH*24*28] = this->pos;
+		#endif
+	}
 
 }
 #endif

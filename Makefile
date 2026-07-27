@@ -33,10 +33,10 @@ OPT += -DHOUR
 #OPT += -DSTOREVEL
 #OPT += -DCIRCULAR
 #OPT += -DNETWORK
-#OPT += -DLYAPUNOV
+OPT += -DLYAPUNOV
 #OPT += -DSST
 #OPT += -DBROWNIAN
-OPT += -DLYAPSST
+#OPT += -DLYAPSST
 #Network properties.
 OPT += -DNCELL=385
 OPT += -DNSIDE=64
@@ -45,11 +45,11 @@ OPT += -DNETLONMAX=-0.4154256
 OPT += -DNETLATMIN=0.4493061
 OPT += -DNETLATMAX=0.9618006
 #Lyapunov properties.
-#OPT += -DDEND=1.0
+OPT += -DDEND=1.0
 #Brownian properties.
 #OPT += -DNTIMES=11
 #Lyapunov SST properties.
-OPT += -DSCALEFACTOR=4
+#OPT += -DSCALEFACTOR=4
 #Output grid (Lyapunov / SST / Brownian / LyapSST)
 OPT += -DOUTLONMIN=-1.568614665
 #OPT += -DOUTLONMIN=-1.0471975512
