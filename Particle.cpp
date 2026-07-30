@@ -8,7 +8,7 @@ Particle::Particle(){
 	this->vecnum = new float[4];
 	this->vecintervel = new Vec[4];
 	this->posintermed = new Vec[3];
-	this->tau = -999;
+
 	for(int i=0;i<4;i++){
 		this->velmask[i] = 0;
 		this->vecnum[i] = 0.0;
@@ -18,20 +18,17 @@ Particle::Particle(){
 	for(int i=0;i<3;i++){
 		this->posintermed[i] = Vec(0.0,0.0);
 	}
+
 	#ifdef STOREPOS
 		this->path_pos = new Vec[NYEAR*365+1];
 		this->path_pos[0] = this->pos;
 	#elif LYAPUNOV
 		this->path_pos = new Vec[NMONTH*28*24+1];
 		this->path_pos[NMONTH*28*24] = this->pos;
-	#else
-		this->path_pos = 0;
 	#endif
 
 	#ifdef STOREVEL
 		this->path_vel = new Vec[NYEAR*365+1];
-	#else 
-		this->path_vel = 0;
 	#endif
 
 	#ifdef BROWNIAN
@@ -45,9 +42,14 @@ Particle::Particle(){
 	#ifdef LYAPSST
 		this->path_SST = new float[NMONTH*28+1];
 	#endif
+
+	#ifdef LYAPCIRC
+		this->tau = 0;
+		this->radius = 0;
+	#endif
 }
 
-Particle::Particle(float x0,float y0,int t0){
+/*Particle::Particle(float x0,float y0,int t0){
 	this->pos = Vec(x0,y0);
 	this->starttime = t0;
 	this->velmask = new int[4];
@@ -87,6 +89,35 @@ Particle::Particle(float x0,float y0,int t0){
 		this->distances = new float[NTIMES];
 		this->pos0 = Vec(0.0,0.0);
 	#endif
+}*/
+
+void Particle::free_memory(){
+
+	delete[] this->velmask;
+	this->velmask = 0;
+	delete[] this->vecnum;
+	this->vecnum = 0;
+	delete[] this->vecintervel;
+	this->vecintervel = 0;
+	delete[] this->posintermed;
+	this->posintermed = 0;
+	#ifdef STOREPOS
+		delete[] this->path_pos;
+		this->path_pos = 0;
+	#endif
+	#ifdef STOREVEL
+		delete[] this->path_vel;
+		this->path_vel = 0;
+	#endif
+	#ifdef BROWNIAN
+		delete[] this->distances;
+		this->distances = 0;
+	#endif
+	#ifdef LYAPSST
+		delete[] this->path_SST;
+		this->path_SST = 0;
+	#endif 
+
 }
 
 void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
@@ -140,6 +171,7 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
 		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
 		trans_pos();
+		this->radius=r0;
 	#endif 
 
 } 
@@ -193,7 +225,7 @@ void Particle::trans_pos(){
 
 }
 
-#if defined(SST) || defined(BROWNIAN)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC)
 
 float Particle::haversine(Vec pos1){
 
@@ -273,7 +305,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC)
 		n = -1;
 	#endif
 
@@ -324,7 +356,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC)
 		n = -1;
 	#endif
 

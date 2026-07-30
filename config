@@ -1,7 +1,7 @@
 x0 -6251.38889821299
 y0 3003.52566073296
 srf 314.159265359
-write /media/kobe/Windows/spectrum/output/test_lyap
+write /media/kobe/Windows/spectrum/output/test_lyapCIRC
 velocity /media/kobe/shared/spectrum/hourly/vel_transf
 network ../healpix/test_grid
 SSTbeg /media/kobe/shared/spectrum/SST/SST_months_transf

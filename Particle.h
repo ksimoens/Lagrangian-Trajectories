@@ -8,17 +8,28 @@ class Particle{
 
 	private:
 		Vec pos{};
-		Vec* path_pos{};
-		Vec* path_vel{};
+		#if defined(STOREPOS) || defined(LYAPUNOV)
+			Vec* path_pos{};
+		#endif
+		#ifdef STOREVEL
+			Vec* path_vel{};
+		#endif
 		int* velmask{};
 		float* vecnum{};
 		Vec* vecintervel{};
 		Vec* posintermed{};
 		int starttime{};
-		Vec pos0{};
-		float* distances{};
-		float* path_SST{};
-		int tau{};
+		#ifdef BROWNIAN
+			Vec pos0{};
+			float* distances{};
+		#endif
+		#ifdef LYAPSST
+			float* path_SST{};
+		#endif
+		#ifdef LYAPCIRC
+			int tau{};
+			float radius{};
+		#endif
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
@@ -32,9 +43,11 @@ class Particle{
 		int get_lat_index(float lat,float latmin,float latmax,float latres);
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int t);
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int k,int t);
-		void RK_move(Vec* velgrid, int t,Vec dW);
+		#ifndef LYAPCIRC
+			void RK_move(Vec* velgrid, int t,Vec dW);
+		#endif
 		void update_pos(float K,Vec dW);
-		#if defined(SST) || defined(BROWNIAN)
+		#if defined(BROWNIAN)
 			float haversine(Vec pos1);
 		#endif
 
@@ -54,21 +67,35 @@ class Particle{
 			int get_pixel_id(hlp_coord hlp);
 		#endif
 
+		void free_memory();
+
 	public:
 		Particle();
-		Particle(float x0, float y0, int t0);
+		//Particle(float x0, float y0, int t0);
+		/*#if defined(STOREPOS) || defined(LYAPUNOV)
 		~Particle(){delete[] path_vel;path_vel=0;delete[] path_pos;path_pos=0;
 					delete[] velmask;velmask=0;delete[] vecnum;vecnum=0;
 					delete[] vecintervel;vecintervel=0;
 					delete[] posintermed;posintermed=0;
 					delete[] distances;distances=0;
-					delete[] path_SST;path_SST=0;};
+					delete[] path_SST;path_SST=0;};*/
+		~Particle(){free_memory();};
 
 		Vec getPos(){return pos;};
-		Vec* getPathPos(){return path_pos;};
-		Vec* getPathVel(){return path_vel;};
-		float* getPathSST(){return path_SST;};
-		int getTau(){return this->tau;};
+		#if defined(STOREPOS) || defined(LYAPUNOV)
+			Vec* getPathPos(){return path_pos;};
+		#endif
+		#ifdef STOREVEL
+			Vec* getPathVel(){return path_vel;};
+		#endif
+		#ifdef LYAPSST
+			float* getPathSST(){return path_SST;};
+		#endif
+		#ifdef LYAPCIRC
+			int getTau(){return this->tau;};
+			void setTau(int t){this->tau = t;};
+			float getRadius(){return this->radius;};
+		#endif
 		#ifdef BROWNIAN
 			float* getDistances(){return this->distances;};
 		#endif
@@ -94,6 +121,13 @@ class Particle{
 		#endif
 		#ifdef LYAPSST
 			void make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int Ntime);
+		#endif
+		#ifdef LYAPCIRC
+			void RK_move(Vec* velgrid, int t,Vec dW);
+		#endif
+
+		#if defined(LYAPCIRC) || defined(SST)
+			float haversine(Vec pos1);
 		#endif
 
 		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0);
