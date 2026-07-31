@@ -668,7 +668,7 @@ void Grid::initial_network(){
 
 void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 
-	float grid_SST[SSTGRIDNLAT][SSTGRIDNLON];
+	float grid_SST[SSTGRIDNLAT][(int)(SSTGRIDNLON/2)];
 	netCDF::NcFile dataFilebeg(SSTbegdir+".nc", netCDF::NcFile::read);
 	netCDF::NcVar SSTVar;
 	SSTVar = dataFilebeg.getVar("SST");
@@ -677,24 +677,44 @@ void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 	startp.push_back(0);
 	startp.push_back(0);
 	countp.push_back(SSTGRIDNLAT);
-	countp.push_back(SSTGRIDNLON);
+	countp.push_back((int)(SSTGRIDNLON/2));
 
 	SSTVar.getVar(startp,countp,grid_SST);
      
-	for(int ilon=0;ilon<SSTGRIDNLON;ilon++){
+	for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
 		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
 			this->SSTbeg[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+		}
+	}
+
+	startp[1] = (int)(SSTGRIDNLON/2);
+	SSTVar.getVar(startp,countp,grid_SST);
+
+	for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
+		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+			this->SSTbeg[(ilon+(int)(SSTGRIDNLON/2))+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
 		}
 	}
 
 	netCDF::NcFile dataFileend(SSTenddir+".nc", netCDF::NcFile::read);
 	SSTVar = dataFileend.getVar("SST");
 
+	startp[1] = 0;
+
 	SSTVar.getVar(startp,countp,grid_SST);
      
-	for(int ilon=0;ilon<SSTGRIDNLON;ilon++){
+	for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
 		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
 			this->SSTend[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+		}
+	}
+
+	startp[1] = (int)(SSTGRIDNLON/2);
+	SSTVar.getVar(startp,countp,grid_SST);
+
+	for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
+		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+			this->SSTend[(ilon+(int)(SSTGRIDNLON/2))+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
 		}
 	}
      
@@ -1373,14 +1393,13 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				float s_dist = 0.0;
 				float s2_dist = 0.0;
 				float s_sst = 0.0;
-				float s_shift_sst = 0.0;
 				float s2_sst = 0.0;
 				float sdiff_sst = 0.0;
 				int mask_dist = 0;
 				int c_dist = 0;
 				int mask_sst = 0;
 				int c_sst = 0;
-				float shift_sst = this->particles[0+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
+
 				Vec pos0 = Vec(OUTLONMIN+ilon*OUTLONRES,mu_lat(OUTLATMIN+ilat*OUTLATRES));
 				float dist_j,temp_j;
 
@@ -1389,29 +1408,47 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					dist_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].haversine(pos0);
 					mask_dist = (dist_j < -100.0) ? 1 : 0;
 					s_dist += (1-mask_dist)*dist_j;
-					s2_dist += (1-mask_dist)*pow(dist_j,2);
 					c_dist += (1-mask_dist); 
 
 					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
 					mask_sst = (temp_j < -100.0) ? 1 : 0;
 					s_sst += (1-mask_sst)*temp_j;
-					s_shift_sst += (1-mask_sst)*(temp_j-shift_sst);
-					s2_sst += (1-mask_sst)*pow(temp_j-shift_sst,2);
 					sdiff_sst += (1-mask_sst)*(temp_0-temp_j);
 					c_sst += (1-mask_sst); 
 
 				}
 
-				mask_dist = (c_dist < (int)(NPART/10)) ? 1 : 0;
-				c_dist = (mask_dist == 1) ? 1 : c_dist;
-				mat_meandist[ilat-1][ilon-1] = (1-mask_dist)*s_dist/c_dist/180.0*M_PI*R/1000.0 + (-999.0)*mask_dist;
-				mat_vardist[ilat-1][ilon-1] = (1-mask_dist)*(s2_dist/c_dist-pow(s_dist/c_dist,2))/180.0/180.0*M_PI*M_PI*R*R/1000.0/1000.0 + (-999.0)*mask_dist;
+				int mask_dist_mn = (c_dist > (int)(NPART/10)) ? 0 : 1;
+				int mask_sst_mn = (c_sst > (int)(NPART/10)) ? 0 : 1;
 
-				mask_sst = (c_sst < (int)(NPART/10)) ? 1 : 0;
-				c_sst = (mask_sst == 1) ? 1 : c_sst;
-				mat_meanSST[ilat-1][ilon-1] = (1-mask_sst)*s_sst/c_sst + (-999.0)*mask_sst;
-				mat_varSST[ilat-1][ilon-1] = (1-mask_sst)*(s2_sst/c_sst-pow(s_shift_sst/c_sst,2)) + (-999.0)*mask_sst;
-				mat_meanSSTdiff[ilat-1][ilon-1] = (1-mask_sst)*sdiff_sst/c_sst + (-999.0)*mask_sst;
+				c_dist = (mask_dist_mn == 1) ? 1 : c_dist;
+				c_sst = (mask_sst_mn == 1) ? 1 : c_sst;
+
+				s_dist = (1-mask_dist_mn)*s_dist/c_dist + (-999.0)*mask_dist_mn;
+				s_sst = (1-mask_sst_mn)*s_sst/c_sst + (-999.0)*mask_sst_mn;
+				sdiff_sst = (1-mask_sst_mn)*sdiff_sst/c_sst + (-999.0)*mask_sst_mn;
+
+				for(int j=0;j<NPART;j++){
+
+					dist_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].haversine(pos0);
+					mask_dist = (dist_j < -100.0) ? 1 : 0;
+					s2_dist += (1-mask_dist)*pow(dist_j-s_dist,2);
+
+					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
+					mask_sst = (temp_j < -100.0) ? 1 : 0;
+					s2_sst += (1-mask_sst)*pow(temp_j-s_sst,2);
+
+				}
+
+				s2_dist = (1-mask_dist_mn)*s2_dist/c_dist + (-999.0)*mask_dist_mn;
+				s2_sst = (1-mask_sst_mn)*s2_sst/c_sst + (-999.0)*mask_sst_mn;
+
+				mat_meandist[ilat-1][ilon-1] = s_dist;
+				mat_vardist[ilat-1][ilon-1] = s2_dist;
+
+				mat_meanSST[ilat-1][ilon-1] = s_sst;
+				mat_varSST[ilat-1][ilon-1] = s2_sst;
+				mat_meanSSTdiff[ilat-1][ilon-1] = sdiff_sst;
 
 		}
 	}	
