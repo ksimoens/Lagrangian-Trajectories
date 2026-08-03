@@ -1,13 +1,13 @@
 #Total number of years to integrate.
 #OPT += -DNYEAR=1
 #Total number of months to integrate.
-OPT += -DNMONTH=1
+OPT += -DNMONTH=3
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
 OPT += -DDTSTART=15
 #Number of particles.
-OPT += -DNPART=1000
+OPT += -DNPART=4
 #Starting year.
 OPT += -DYSTART=2026
 #Starting month.
@@ -34,10 +34,11 @@ OPT += -DHOUR
 #OPT += -DCIRCULAR
 #OPT += -DNETWORK
 #OPT += -DLYAPUNOV
-OPT += -DSST
+#OPT += -DSST
 #OPT += -DBROWNIAN
 #OPT += -DLYAPSST
 #OPT += -DLYAPCIRC
+OPT += -DLYAPRATIO
 #Network properties.
 #OPT += -DNCELL=385
 #OPT += -DNSIDE=64
@@ -50,19 +51,19 @@ OPT += -DSST
 #Brownian properties.
 #OPT += -DNTIMES=11
 #Lyapunov SST properties.
-#OPT += -DSCALEFACTOR=1.4142
+OPT += -DSCALEFACTOR=1.4142
 #Lyapunov circle properties.
-#OPT += -DNCIRC=20
+OPT += -DNCIRC=1
 #Output grid (Lyapunov / SST / Brownian / LyapSST)
-OPT += -DOUTLONMIN=-1.568614665
-#OPT += -DOUTLONMIN=-1.3962634016
-OPT += -DOUTLONMAX=0.259617726
-#OPT += -DOUTLONMAX=-1.2217304764
+#OPT += -DOUTLONMIN=-1.568614665
+OPT += -DOUTLONMIN=-1.3962634016
+#OPT += -DOUTLONMAX=0.259617726
+OPT += -DOUTLONMAX=-1.2217304764
 OPT += -DOUTLONRES=0.004363323
-OPT += -DOUTLATMIN=0.1767146
-#OPT += -DOUTLATMIN=0.52359877559
-OPT += -DOUTLATMAX=1.219549
-#OPT += -DOUTLATMAX=0.69813170079
+#OPT += -DOUTLATMIN=0.1767146
+OPT += -DOUTLATMIN=0.52359877559
+#OPT += -DOUTLATMAX=1.219549
+OPT += -DOUTLATMAX=0.69813170079
 OPT += -DOUTLATRES=0.004363323
 #Shape of SST data grid
 OPT += -DSSTGRIDNLON=2100

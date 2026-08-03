@@ -32,6 +32,9 @@ class Grid{
 			size_t calc_nhours(int current_month,int current_year);
 			void fill_vels_month(int year,int month,std::string veldir);
 		#endif
+		#if defined(LYAPSST) || defined(LYAPRATIO)
+			size_t calc_ndays(int current_month,int current_year);
+		#endif
 		//void get_mus(std::string veldir);
 		//void get_time_slice(int t);
 
@@ -49,8 +52,11 @@ class Grid{
 		#endif
 
 		#ifdef LYAPSST
-			void fill_SSTs(std::string SSTbegdir);
 			float get_SSTdiff(float SST0,float SST1);
+		#endif
+		#if defined(LYAPSST) || defined(LYAPRATIO)
+			void fill_SSTs(std::string SSTbegdir);
+			void fill_SSTs_month(int year,int month,std::string SSTdir);
 		#endif
 
 	public:
@@ -69,7 +75,7 @@ class Grid{
 		#ifdef BROWNIAN
 			Grid(float r,std::string veldir);
 		#endif
-		#ifdef LYAPSST
+		#if defined(LYAPSST) || defined(LYAPRATIO)
 			Grid(std::string veldir,std::string SSTbegdir);
 		#endif
 		~Grid(){delete[] vels; vels = 0; 
