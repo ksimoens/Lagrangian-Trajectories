@@ -30,12 +30,18 @@ class Particle{
 			int tau{};
 			float radius{};
 		#endif
+		#ifdef LYAPRATIO
+			int tau{};
+			int tau_SST{};
+			float SSTdiff0{};
+			float radius{};
+		#endif
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC)
+		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO)
 			float fun_x(float lon,float lat);
 			float fun_y(float lat);
 		#endif
@@ -91,10 +97,16 @@ class Particle{
 		#ifdef LYAPSST
 			float* getPathSST(){return path_SST;};
 		#endif
-		#ifdef LYAPCIRC
+		#if defined(LYAPCIRC) || defined(LYAPSST)
 			int getTau(){return this->tau;};
 			void setTau(int t){this->tau = t;};
 			float getRadius(){return this->radius;};
+		#endif
+		#if defined(LYAPRATIO)
+			int getTauSST(){return this->tau_SST;};
+			void setTauSST(int t){this->tau_SST = t;};
+			void setSSTdiff0(float dSST0){this->SSTdiff0 = dSST0;};
+			float getSSTdiff0(){return(this->SSTdiff0);};
 		#endif
 		#ifdef BROWNIAN
 			float* getDistances(){return this->distances;};
@@ -103,7 +115,7 @@ class Particle{
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
 		
-		#if defined(SST) || defined(LYAPSST)
+		#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO)
 			float interpol(float* SSTgrid,int t);
 		#endif
 

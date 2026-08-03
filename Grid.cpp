@@ -228,16 +228,27 @@ Grid::Grid(std::string veldir,std::string SSTbegdir){
 	
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
-	this->particles = new Particle[(nlon-2)*(nlat-2)]();
 	this->network = 0;
 	this->SSTbeg = 0;
 	this->SSTend = 0;
 	this->SSTs = new float[SSTGRIDNLON*SSTGRIDNLAT*calc_ndays(MSTART,YSTART)];
-	this->vecR = 0;
+	/*this->vecR = new float[NCIRC]();
+	float dlogR = 2.0/(NCIRC-1);
+	this->npart = 0;
+	for(int x=0;x<NCIRC;x++){
+		vecR[x] = pow(10,x*dlogR);
+		this->npart += (int)(vecR[x]*NPART+0.5);
+	}*/
+	this->vecR = new float[2]();
+	this->npart = 0;
+	vecR[0] = 1.0;
+	vecR[1] = 10.0;
+	this->npart = 14;
+	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
 
 	fill_vels(veldir);
-	//initial_particles();
 	fill_SSTs(SSTbegdir);
+	initial_particles();
 
 }
 #endif
@@ -661,10 +672,11 @@ void Grid::initial_particles(){
 
 	#endif
 
-	#ifdef LYAPCIRC
+	#if defined(LYAPCIRC) || defined(LYAPRATIO)
 
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	int ntime = calc_ndays(MSTART,YSTART);
 
 	//#pragma omp parallel 
 	{
@@ -673,6 +685,7 @@ void Grid::initial_particles(){
 		for(int ilat=1;ilat<(nlat-1);ilat++){
 			for(int ilon=1;ilon<(nlon-1);ilon++){
 				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,0.0,0.0,0);
+				float temp_k = this->particles[k*(this->npart+1)].interpol(this->SSTs,ntime-1);
 				int l = 1;
 				for(int ring=0;ring<NCIRC;ring++){
 					int nring = (int)(this->vecR[ring]*NPART+0.5);
@@ -680,6 +693,8 @@ void Grid::initial_particles(){
 					for(int x=0;x<nring;x++){
 						this->particles[k*(this->npart+1)+l].get_initial_pos(
 							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,0.0,this->vecR[ring],0);
+						float temp_l = this->particles[k*(this->npart+1)+l].interpol(this->SSTs,ntime-1);
+						this->particles[k*(this->npart+1)+l].setSSTdiff0(get_SSTdiff(temp_k,temp_l));
 						l++;
 					}
 				}
@@ -1021,7 +1036,7 @@ float Grid::euclidean(Vec pos0,Vec pos1){
 }
 #endif
 
-#ifdef LYAPSST
+#if defined(LYAPSST) || defined(LYAPRATIO)
 	
 float Grid::get_SSTdiff(float SST0,float SST1){
 

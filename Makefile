@@ -53,7 +53,7 @@ OPT += -DLYAPRATIO
 #Lyapunov SST properties.
 OPT += -DSCALEFACTOR=1.4142
 #Lyapunov circle properties.
-OPT += -DNCIRC=1
+OPT += -DNCIRC=2
 #Output grid (Lyapunov / SST / Brownian / LyapSST)
 #OPT += -DOUTLONMIN=-1.568614665
 OPT += -DOUTLONMIN=-1.3962634016

@@ -47,6 +47,13 @@ Particle::Particle(){
 		this->tau = 0;
 		this->radius = 0;
 	#endif
+
+	#ifdef LYAPRATIO
+		this->SSTdiff0 = 0;
+		this->tau_SST = 0;
+		this->tau = 0;
+		this->radius = 0;
+	#endif
 }
 
 /*Particle::Particle(float x0,float y0,int t0){
@@ -174,6 +181,13 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->radius=r0;
 	#endif 
 
+	#ifdef LYAPRATIO
+		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
+		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
+		trans_pos();
+		this->radius=r0;
+	#endif 
+
 } 
 
 // https://neacsu.net/geodesy/snyder/7-pseudocylindrical/sect_30/
@@ -196,7 +210,7 @@ float Particle::get_mu(float y0){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO)
 
 float Particle::fun_x(float lon,float lat){
 
@@ -383,7 +397,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 }
 
-#if defined(SST) || defined(LYAPSST)
+#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO)
 
 float Particle::interpol(float* sstgrid,int t){
 
