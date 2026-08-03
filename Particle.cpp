@@ -239,7 +239,7 @@ void Particle::trans_pos(){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO)
 
 float Particle::haversine(Vec pos1){
 
@@ -319,7 +319,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)
 		n = -1;
 	#endif
 
@@ -370,7 +370,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)
 		n = -1;
 	#endif
 

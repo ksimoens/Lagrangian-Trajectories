@@ -1015,6 +1015,56 @@ void Grid::do_simulation(){
 			}
 
 		#endif
+
+		#ifdef LYAPRATIO
+
+			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+			int ndays = (int)calc_ndays(MSTART,YSTART);
+			int mask_done_sst;
+			int mask_done_dist;
+			int mask_dist;
+			int mask_sst;
+			float havdist;
+			float temp_j;
+			float temp_x;
+			float SSTdiff;
+			#pragma omp for
+			for(int j=0;j<((nlon-2)*(nlat-2));j++){
+				Vec dW;
+				std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
+				for(int day=ndays-1;day > ndays-NMONTH*28-1;day--){
+					for(int hour=0;hour<24;hour++){
+						for(int x=0;x<(this->npart+1);x++){
+							dW.setX(norm(rng));
+							dW.setY(norm(rng));
+							this->particles[j*(this->npart+1)+x].RK_move(this->vels,(day+1)*24-1-hour,dW);
+						}
+					}
+
+					temp_j = this->particles[j*(this->npart+1)].interpol(this->SSTs,day-1);
+
+					for(int x=1;x<(this->npart+1);x++){
+						havdist = this->particles[j*(this->npart+1)+x].haversine(this->particles[j*(this->npart+1)].getPos())/180*M_PI*R/1000.0;
+						temp_x = this->particles[j*(this->npart+1)+x].interpol(this->SSTs,day-1);
+						SSTdiff = get_SSTdiff(temp_j,temp_x);
+
+						mask_dist = (havdist > SCALEFACTOR*this->particles[j*(this->npart+1)+x].getRadius()) ? 1 : 0;
+						mask_sst = (SSTdiff > SCALEFACTOR*this->particles[j*(this->npart+1)+x].getSSTdiff0()) ? 1 : 0;
+
+						mask_done_dist = (this->particles[j*(this->npart+1)+x].getTau() == 0) ? 1 : 0;
+						mask_done_sst = (this->particles[j*(this->npart+1)+x].getTauSST() == 0) ? 1 : 0;
+						this->particles[j*(this->npart+1)+x].setTau((ndays-day)*mask_dist*mask_done_dist +
+								this->particles[j*(this->npart+1)+x].getTau()*
+									(mask_dist*(1-mask_done_dist)+(1-mask_dist)*mask_done_dist+(1-mask_dist)*(1-mask_done_dist)));
+						this->particles[j*(this->npart+1)+x].setTauSST((ndays-day)*mask_sst*mask_done_sst +
+								this->particles[j*(this->npart+1)+x].getTauSST()*
+									(mask_sst*(1-mask_done_sst)+(1-mask_sst)*mask_done_sst+(1-mask_sst)*(1-mask_done_sst)));
+					}
+				}
+			}
+
+		#endif
 	}
 }
 

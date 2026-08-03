@@ -29,14 +29,14 @@ int main(){
 		Grid grid = Grid(myparams.v);
 	#endif
 	
-	/*auto t_end = std::chrono::high_resolution_clock::now();
+	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_init = std::chrono::duration<double, std::milli>(t_end-t_start).count();
 	
 	t_start = std::chrono::high_resolution_clock::now();
 	grid.do_simulation();
 	t_end = std::chrono::high_resolution_clock::now();
 	double dt_sim = std::chrono::duration<double, std::milli>(t_end-t_start).count();
-
+	/*
 	std::ifstream file((myparams.w+".nc").c_str());
 	if(file.good()){
 		std::remove((myparams.w+".nc").c_str());

@@ -50,7 +50,9 @@ class Particle{
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int t);
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int k,int t);
 		#ifndef LYAPCIRC
-			void RK_move(Vec* velgrid, int t,Vec dW);
+			#ifndef LYAPRATIO
+				void RK_move(Vec* velgrid, int t,Vec dW);
+			#endif
 		#endif
 		void update_pos(float K,Vec dW);
 		#if defined(BROWNIAN)
@@ -97,7 +99,7 @@ class Particle{
 		#ifdef LYAPSST
 			float* getPathSST(){return path_SST;};
 		#endif
-		#if defined(LYAPCIRC) || defined(LYAPSST)
+		#if defined(LYAPCIRC) || defined(LYAPRATIO)
 			int getTau(){return this->tau;};
 			void setTau(int t){this->tau = t;};
 			float getRadius(){return this->radius;};
@@ -134,11 +136,11 @@ class Particle{
 		#ifdef LYAPSST
 			void make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int Ntime);
 		#endif
-		#ifdef LYAPCIRC
+		#if defined(LYAPCIRC) || defined(LYAPRATIO)
 			void RK_move(Vec* velgrid, int t,Vec dW);
 		#endif
 
-		#if defined(LYAPCIRC) || defined(SST)
+		#if defined(LYAPCIRC) || defined(SST) || defined(LYAPRATIO)
 			float haversine(Vec pos1);
 		#endif
 
