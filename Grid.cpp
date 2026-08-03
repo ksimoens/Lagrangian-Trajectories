@@ -1413,7 +1413,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
 					mask_sst = (temp_j < -100.0) ? 1 : 0;
 					s_sst += (1-mask_sst)*temp_j;
-					sdiff_sst += (1-mask_sst)*(temp_0-temp_j);
+					sdiff_sst += (1-mask_sst)*(temp_j-temp_0);
 					c_sst += (1-mask_sst); 
 
 				}
@@ -1424,7 +1424,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 				c_dist = (mask_dist_mn == 1) ? 1 : c_dist;
 				c_sst = (mask_sst_mn == 1) ? 1 : c_sst;
 
-				s_dist = (1-mask_dist_mn)*s_dist/c_dist + (-999.0)*mask_dist_mn;
+				s_dist = (1-mask_dist_mn)*s_dist/c_dist/180.0*M_PI*R/1e3 + (-999.0)*mask_dist_mn;
 				s_sst = (1-mask_sst_mn)*s_sst/c_sst + (-999.0)*mask_sst_mn;
 				sdiff_sst = (1-mask_sst_mn)*sdiff_sst/c_sst + (-999.0)*mask_sst_mn;
 
@@ -1432,6 +1432,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 					dist_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].haversine(pos0);
 					mask_dist = (dist_j < -100.0) ? 1 : 0;
+					dist_j = dist_j/180.0*M_PI*R/1e3;
 					s2_dist += (1-mask_dist)*pow(dist_j-s_dist,2);
 
 					temp_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].interpol(this->SSTend,0);
