@@ -36,12 +36,15 @@ class Particle{
 			float SSTdiff0{};
 			float radius{};
 		#endif
+		#ifdef LYAPINFINITY
+			float radius{};
+		#endif
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO)
+		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 			float fun_x(float lon,float lat);
 			float fun_y(float lat);
 		#endif
@@ -112,6 +115,9 @@ class Particle{
 		#endif
 		#ifdef BROWNIAN
 			float* getDistances(){return this->distances;};
+		#endif
+		#ifdef LYAPINFINITY
+			float getRadius(){return this->radius;};
 		#endif
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};

@@ -254,6 +254,39 @@ Grid::Grid(std::string veldir,std::string SSTbegdir){
 }
 #endif
 
+#ifdef LYAPINFINITY
+Grid::Grid(std::string veldir,std::string SSTenddir){
+
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elif HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
+	#endif
+	
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = new float[SSTGRIDNLON*SSTGRIDNLAT];
+	this->SSTs = 0;
+	this->vecR = new float[NCIRC]();
+	float dlogR = 2.0/(NCIRC-1);
+	this->npart = 0;
+	for(int x=0;x<NCIRC;x++){
+		vecR[x] = pow(10,x*dlogR);
+		this->npart += (int)(vecR[x]*NPART+0.5);
+	}
+	
+	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
+	fill_vels(veldir);
+	fill_SSTs(SSTenddir);
+	initial_particles();
+
+}
+#endif
+
 #ifdef DAY
 size_t Grid::calc_ndays(int current_year){
 
@@ -271,7 +304,7 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
-#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO))
+#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY))
 size_t Grid::calc_nhours(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -516,7 +549,7 @@ void Grid::fill_vels_year(int year,std::string veldir){
 void Grid::fill_vels_month(int year,int month,std::string veldir){
 
 	size_t nhour;
-	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)
+	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 		size_t nhour_before = calc_nhours(month-1,year);
 	#elif defined(BROWNIAN)
 		size_t nhour_before = calc_nhours(month,year);
@@ -673,11 +706,40 @@ void Grid::initial_particles(){
 
 	#endif
 
-	#if defined(LYAPCIRC) || defined(LYAPRATIO)
+	#if defined(LYAPCIRC) || defined(LYAPINFINITY)
 
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
-	int ntime = calc_ndays(MSTART,YSTART);
+
+	//#pragma omp parallel 
+	{
+		//#pragma omp for
+		int k = 0;
+		for(int ilat=1;ilat<(nlat-1);ilat++){
+			for(int ilon=1;ilon<(nlon-1);ilon++){
+				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,0.0,0.0,0);
+				int l = 1;
+				for(int ring=0;ring<NCIRC;ring++){
+					int nring = (int)(this->vecR[ring]*NPART+0.5);
+					float dtheta = 2.0*M_PI/nring;
+					for(int x=0;x<nring;x++){
+						this->particles[k*(this->npart+1)+l].get_initial_pos(
+							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,0.0,this->vecR[ring],0);
+						l++;
+					}
+				}
+
+				k++;
+			}
+		}
+	}
+
+	#endif
+
+	#ifdef LYAPRATIO
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 
 	//#pragma omp parallel 
 	{
@@ -910,6 +972,46 @@ void Grid::fill_SSTs_month(int year,int month,std::string SSTdir){
 		}
 
 	} 
+
+}
+
+#endif
+
+#ifdef LYAPINFINITY
+
+void Grid::fill_SSTs(std::string SSTenddir){
+
+	float grid_SST[SSTGRIDNLAT][(int)(SSTGRIDNLON/2)];
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(SSTGRIDNLAT);
+	countp.push_back((int)(SSTGRIDNLON/2));
+
+	netCDF::NcFile dataFileend(SSTenddir+".nc", netCDF::NcFile::read);
+	netCDF::NcVar SSTVar;
+	SSTVar = dataFileend.getVar("SST");
+
+	startp[1] = 0;
+
+	SSTVar.getVar(startp,countp,grid_SST);
+     
+	for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
+		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+			this->SSTend[ilon+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+		}
+	}
+
+	startp[1] = (int)(SSTGRIDNLON/2);
+	SSTVar.getVar(startp,countp,grid_SST);
+
+	for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
+		for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
+			this->SSTend[(ilon+(int)(SSTGRIDNLON/2))+SSTGRIDNLON*ilat] = grid_SST[ilat][ilon];
+		}
+	}
+     
 
 }
 

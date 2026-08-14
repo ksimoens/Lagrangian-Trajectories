@@ -58,6 +58,9 @@ class Grid{
 			void fill_SSTs(std::string SSTbegdir);
 			void fill_SSTs_month(int year,int month,std::string SSTdir);
 		#endif
+		#ifdef LYAPINFINITY
+			void fill_SSTs(std::string SSTenddir);
+		#endif
 
 	public:
 		#ifdef CIRCULAR
@@ -75,7 +78,7 @@ class Grid{
 		#ifdef BROWNIAN
 			Grid(float r,std::string veldir);
 		#endif
-		#if defined(LYAPSST) || defined(LYAPRATIO)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 			Grid(std::string veldir,std::string SSTbegdir);
 		#endif
 		~Grid(){delete[] vels; vels = 0; 

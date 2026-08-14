@@ -174,14 +174,7 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setY(pos0.getY());
 	#endif
 
-	#ifdef LYAPCIRC
-		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
-		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
-		trans_pos();
-		this->radius=r0;
-	#endif 
-
-	#ifdef LYAPRATIO
+	#if defined(LYAPRATIO) || defined(LYAPCIRC) || defined(LYAPINFINITY)
 		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
 		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
 		trans_pos();
@@ -210,7 +203,7 @@ float Particle::get_mu(float y0){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 
 float Particle::fun_x(float lon,float lat){
 
