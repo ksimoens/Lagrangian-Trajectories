@@ -32,7 +32,7 @@ class Grid{
 			size_t calc_nhours(int current_month,int current_year);
 			void fill_vels_month(int year,int month,std::string veldir);
 		#endif
-		#if defined(LYAPSST) || defined(LYAPRATIO)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 			size_t calc_ndays(int current_month,int current_year);
 		#endif
 		//void get_mus(std::string veldir);

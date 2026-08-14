@@ -123,7 +123,7 @@ class Particle{
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
 		
-		#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO)
+		#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 			float interpol(float* SSTgrid,int t);
 		#endif
 
@@ -133,7 +133,7 @@ class Particle{
 		#ifdef CIRCULAR
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng);
 		#endif
-		#if defined(LYAPUNOV) || defined(SST)
+		#if defined(LYAPUNOV) || defined(SST) || defined(LYAPINFINITY)
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int Ntime);
 		#endif
 		#ifdef BROWNIAN

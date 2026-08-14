@@ -312,7 +312,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 		n = -1;
 	#endif
 
@@ -363,7 +363,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 		n = -1;
 	#endif
 
@@ -390,7 +390,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 }
 
-#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO)
+#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 
 float Particle::interpol(float* sstgrid,int t){
 
@@ -786,21 +786,31 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng){
 }
 #endif
 
-#if defined(LYAPUNOV) || defined(SST)
+#if defined(LYAPUNOV) || defined(SST) || defined(LYAPINFINITY)
 void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng,int Ntime){
 
 	Vec dW;
 	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
 
-	for(int t=Ntime-1;t > Ntime-NMONTH*28*24-1;t--){
-	//for(int t=NYEAR*30*24-1;t > 1500;t--){
-		dW.setX(norm(rng));
-		dW.setY(norm(rng));
-		RK_move(velgrid,t,dW);
-		#ifdef LYAPUNOV
-			this->path_pos[t-Ntime+NMONTH*24*28] = this->pos;
-		#endif
-	}
+	#ifdef HOUR
+		for(int t=Ntime-1;t > Ntime-NMONTH*28*24-1;t--){
+		//for(int t=NYEAR*30*24-1;t > 1500;t--){
+			dW.setX(norm(rng));
+			dW.setY(norm(rng));
+			RK_move(velgrid,t,dW);
+			#ifdef LYAPUNOV
+				this->path_pos[t-Ntime+NMONTH*24*28] = this->pos;
+			#endif
+		}
+	#endif
+	#ifdef DAY
+		for(int t=Ntime-1;t > Ntime-NYEAR*365-1;t--){
+		//for(int t=NYEAR*30*24-1;t > 1500;t--){
+			dW.setX(norm(rng));
+			dW.setY(norm(rng));
+			RK_move(velgrid,t,dW);
+		}
+	#endif
 
 }
 #endif

@@ -258,13 +258,13 @@ Grid::Grid(std::string veldir,std::string SSTbegdir){
 Grid::Grid(std::string veldir,std::string SSTenddir){
 
 	#ifdef DAY
-		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
-		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(YSTART)]();
 	#elif HOUR
 		this->Nstart = 1;
 		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
 	#endif
-	
+
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 	this->network = 0;
@@ -278,7 +278,7 @@ Grid::Grid(std::string veldir,std::string SSTenddir){
 		vecR[x] = pow(10,x*dlogR);
 		this->npart += (int)(vecR[x]*NPART+0.5);
 	}
-	
+
 	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
 	fill_vels(veldir);
 	fill_SSTs(SSTenddir);
@@ -291,15 +291,26 @@ Grid::Grid(std::string veldir,std::string SSTenddir){
 size_t Grid::calc_ndays(int current_year){
 
 	size_t nday = 0;
-	for(int year=YSTART;year<current_year;year++){
+	#ifdef LYAPINFINITY
+		for(int year=YSTART-(NYEAR-1);year<=current_year;year++){
+			if((year%4==0) & (year!=2000)){
+				nday += 366;
+			} else{
+				nday += 365;
+			}
 
-		if((year%4==0) & (year!=2000)){
-			nday += 366;
-		} else{
-			nday += 365;
 		}
+	#else
+		for(int year=YSTART;year<current_year;year++){
 
-	}
+			if((year%4==0) & (year!=2000)){
+				nday += 366;
+			} else{
+				nday += 365;
+			}
+
+		}
+	#endif
 
 	return(nday);
 
@@ -451,11 +462,17 @@ size_t Grid::calc_ndays(int current_month,int current_year){
 void Grid::fill_vels(std::string veldir){
 
 	#ifdef DAY
-		for(int i=0;i<NYEAR+NYEARSTART;i++){
-			fill_vels_year(i,veldir);
-		}
+		#ifndef LYAPINFINITY
+			for(int i=0;i<NYEAR+NYEARSTART;i++){
+				fill_vels_year(i,veldir);
+			}
+		#else
+			for(int i=0;i<NYEAR;i++){
+				fill_vels_year(i,veldir);
+			}
+		#endif
 	#endif
-	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)) 
+	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || LYAPINFINITY) 
 		
 		int vec_month[NMONTH];
 		int vec_year[NMONTH];
@@ -499,22 +516,28 @@ void Grid::fill_vels(std::string veldir){
 
 }
 
-#ifdef DAY
+#ifdef DAY 
 void Grid::fill_vels_year(int year,std::string veldir){
-
 	size_t nday;
-	size_t nday_before = calc_ndays(year+YSTART);
-
-	if(((year+YSTART)%4==0) & ((year+YSTART)!=2000)){
-		nday = 366;
-	} else{
-		nday = 365;
-	}
+	#ifdef LYAPINFINITY
+		size_t nday_before = calc_ndays(year+YSTART-(NYEAR-1)-1);
+		if(((year+YSTART-(NYEAR-1))%4==0) & ((year+YSTART-(NYEAR-1))!=2000)){
+			nday = 366;
+		} else{
+			nday = 365;
+		}
+	#else
+		size_t nday_before = calc_ndays(year+YSTART);
+		if(((year+YSTART)%4==0) & ((year+YSTART)!=2000)){
+			nday = 366;
+		} else{
+			nday = 365;
+		}
+	#endif
 
 	float grid_time_x[NLAT][NLON];
 	float grid_time_y[NLAT][NLON];
-	std::string ystr = std::to_string(year+YSTART);
-	netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(year+YSTART)+".nc", netCDF::NcFile::read);
+	netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(YSTART-(NYEAR-1)+year)+".nc", netCDF::NcFile::read);
 	netCDF::NcVar velxVar;
 	velxVar = dataFile.getVar("u");
 	netCDF::NcVar velyVar;
@@ -533,7 +556,6 @@ void Grid::fill_vels_year(int year,std::string veldir){
 		startp[0]=day;
 		velxVar.getVar(startp,countp,grid_time_x);
 		velyVar.getVar(startp,countp,grid_time_y);
-     
 		for(int ilon=0;ilon<NLON;ilon++){
 			for(int ilat=0;ilat<NLAT;ilat++){
 				this->vels[ilon+NLON*(ilat+NLAT*(day+nday_before))] = 
@@ -988,7 +1010,6 @@ void Grid::fill_SSTs(std::string SSTenddir){
 	startp.push_back(0);
 	countp.push_back(SSTGRIDNLAT);
 	countp.push_back((int)(SSTGRIDNLON/2));
-
 	netCDF::NcFile dataFileend(SSTenddir+".nc", netCDF::NcFile::read);
 	netCDF::NcVar SSTVar;
 	SSTVar = dataFileend.getVar("SST");
@@ -1168,6 +1189,24 @@ void Grid::do_simulation(){
 									(mask_sst*(1-mask_done_sst)+(1-mask_sst)*mask_done_sst+(1-mask_sst)*(1-mask_done_sst)));
 					}
 				}
+			}
+
+		#endif
+
+		#ifdef LYAPINFINITY
+			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+			#ifdef HOUR
+				int ntime = (int)calc_nhours(MSTART,YSTART);
+			#endif
+			#ifdef DAY
+				int ntime = (int)calc_ndays(YSTART);
+			#endif
+			#pragma omp for
+			for(int j=0;j<(nlon-2)*(nlat-2)*(this->npart+1);j++){
+			//for(int j=0;j<1000;j++){
+					//std::cout << j << std::endl;
+					this->particles[j].make_trajectory(this->vels,rng,ntime);
 			}
 
 		#endif

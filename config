@@ -2,7 +2,7 @@ x0 -6251.38889821299
 y0 3003.52566073296
 srf 314.159265359
 write /media/kobe/Windows/spectrum/output/test_lyapINF
-velocity /media/kobe/shared/spectrum/hourly/vel_transf
+velocity /media/kobe/shared/spectrum/daily/vel_transf
 network ../healpix/test_grid
 SSTbeg /media/kobe/Windows/spectrum/SST
 SSTend /media/kobe/shared/spectrum/SST/SST_2026_03_03_transf
