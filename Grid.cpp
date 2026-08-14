@@ -239,11 +239,12 @@ Grid::Grid(std::string veldir,std::string SSTbegdir){
 		vecR[x] = pow(10,x*dlogR);
 		this->npart += (int)(vecR[x]*NPART+0.5);
 	}*/
-	this->vecR = new float[2]();
+	this->vecR = new float[3]();
 	this->npart = 0;
 	vecR[0] = 1.0;
 	vecR[1] = 10.0;
-	this->npart = 14;
+	vecR[2] = 25.0;
+	this->npart = 144;
 	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
 
 	fill_vels(veldir);
@@ -421,7 +422,7 @@ void Grid::fill_vels(std::string veldir){
 			fill_vels_year(i,veldir);
 		}
 	#endif
-	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC))
+	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO)) 
 		
 		int vec_month[NMONTH];
 		int vec_year[NMONTH];
@@ -1025,6 +1026,7 @@ void Grid::do_simulation(){
 			int mask_done_dist;
 			int mask_dist;
 			int mask_sst;
+			int mask_sst_out;
 			float havdist;
 			float temp_j;
 			float temp_x;
@@ -1046,11 +1048,13 @@ void Grid::do_simulation(){
 
 					for(int x=1;x<(this->npart+1);x++){
 						havdist = this->particles[j*(this->npart+1)+x].haversine(this->particles[j*(this->npart+1)].getPos())/180*M_PI*R/1000.0;
+						mask_sst_out = (havdist < -100) ? 1 : 0;
 						temp_x = this->particles[j*(this->npart+1)+x].interpol(this->SSTs,day-1);
 						SSTdiff = get_SSTdiff(temp_j,temp_x);
 
 						mask_dist = (havdist > SCALEFACTOR*this->particles[j*(this->npart+1)+x].getRadius()) ? 1 : 0;
 						mask_sst = (SSTdiff > SCALEFACTOR*this->particles[j*(this->npart+1)+x].getSSTdiff0()) ? 1 : 0;
+						mask_sst = mask_sst*(1-mask_sst_out);
 
 						mask_done_dist = (this->particles[j*(this->npart+1)+x].getTau() == 0) ? 1 : 0;
 						mask_done_sst = (this->particles[j*(this->npart+1)+x].getTauSST() == 0) ? 1 : 0;
@@ -2115,6 +2119,159 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				
 	distVar.putVar(startp,countp,mat_lyap);
+				
+	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
+	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
+	data.putAtt("number of particles per grid point",std::to_string(this->npart));
+	data.putAtt("starting date","31-03-2026");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	data.putAtt("final distance scaling factor",std::to_string(SCALEFACTOR));
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#endif
+
+#ifdef LYAPRATIO
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Lyapunov Exponents Scaling with SST Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","Lyapunov scaling SST");
+
+	netCDF::NcDim lonDim = data.addDim("lon", (nlon-4));
+	netCDF::NcDim latDim = data.addDim("lat", (nlat-4));
+	netCDF::NcDim scaleDim = data.addDim("scale", NCIRC);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(scaleDim);
+	dimVector.push_back(latDim);
+	dimVector.push_back(lonDim);
+
+	std::vector<netCDF::NcDim> dimVector_lon;
+	dimVector_lon.push_back(lonDim);
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+
+	netCDF::NcVar lonVar = data.addVar("lon", netCDF::ncFloat, dimVector_lon);
+	lonVar.putAtt("units", "degrees");
+	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	latVar.putAtt("units", "degrees");
+	float vec_lon[(nlon-4)];
+	float vec_lat[(nlat-4)];
+	
+	for(int j=2;j<(nlon-2);j++){
+		vec_lon[j-2] = (OUTLONMIN+j*OUTLONRES)/M_PI*180;
+	}
+	for(int j=2;j<(nlat-2);j++){
+		vec_lat[j-2] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
+	}
+
+	std::vector<size_t> startp_lon,countp_lon;
+	startp_lon.push_back(0);
+	countp_lon.push_back((nlon-4));
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back((nlat-4));
+	lonVar.putVar(startp_lon,countp_lon,vec_lon);
+	latVar.putVar(startp_lat,countp_lat,vec_lat);
+
+	std::vector<netCDF::NcDim> dimVector_scale;
+	dimVector_scale.push_back(scaleDim);
+
+	netCDF::NcVar scaleVar = data.addVar("scale", netCDF::ncFloat, dimVector_scale);
+	scaleVar.putAtt("units", "kilometres");
+	float vec_scale[NCIRC];
+	for(int j=0;j<NCIRC;j++){
+		vec_scale[j] = this->vecR[j];
+	}
+
+	std::vector<size_t> startp_scale,countp_scale;
+	startp_scale.push_back(0);
+	countp_scale.push_back(NCIRC);
+	scaleVar.putVar(startp_scale,countp_scale,vec_scale);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(nlat-4);
+	countp.push_back(nlon-4);
+
+	netCDF::NcVar distVar = data.addVar("lyapunov", netCDF::ncFloat, dimVector);
+	distVar.putAtt("units", "1/days");
+	netCDF::NcVar sstVar = data.addVar("lyapunov_sst", netCDF::ncFloat, dimVector);
+	sstVar.putAtt("units", "1/days");
+	float mat_lyap_dist[(nlat-4)][(nlon-4)];
+	float mat_lyap_sst[(nlat-4)][(nlon-4)];
+
+	//#pragma omp parallel for
+	for(int ring=0;ring<NCIRC;ring++){
+		startp[0] = ring;
+		int nring = (int)(this->vecR[ring]*NPART+0.5);
+
+		for(int ilat=2;ilat<(nlat-2);ilat++){
+			for(int ilon=2;ilon<(nlon-2);ilon++){
+
+				int k = (ilon-1)+(nlon-2)*(ilat-1);
+				int l = 1;
+
+				int sum_tau_dist = 0;
+				int sum_tau_sst = 0;
+				int c_dist = 0;
+				int c_sst = 0;
+				int mask_dist;
+				int mask_sst;
+				int tau_dist;
+				int tau_sst;
+
+				for(int x=0;x<nring;x++){
+
+					tau_dist = this->particles[k*(this->npart+1)+l].getTau();
+					mask_dist = (tau_dist == 0) ? 1 : 0;
+					sum_tau_dist += tau_dist;
+					c_dist += (1-mask_dist);
+
+					tau_sst = this->particles[k*(this->npart+1)+l].getTauSST();
+					mask_sst = (tau_sst == 0) ? 1 : 0;
+					sum_tau_sst += tau_sst;
+					c_sst += (1-mask_sst);
+					l++;
+
+				}
+
+				mask_dist = (c_dist == 0) ? 1 : 0;
+				sum_tau_dist = (c_dist == 0) ? 1 : sum_tau_dist;
+				mat_lyap_dist[ilat-2][ilon-2] = log(SCALEFACTOR)/sum_tau_dist*c_dist +
+					(-999.0)*(mask_dist);
+
+				mask_sst = (c_sst == 0) ? 1 : 0;
+				sum_tau_sst = (c_sst == 0) ? 1 : sum_tau_sst;
+				mat_lyap_sst[ilat-2][ilon-2] = log(SCALEFACTOR)/sum_tau_sst*c_sst +
+					(-999.0)*(mask_sst);
+
+				
+			}
+		}
+
+		distVar.putVar(startp,countp,mat_lyap_dist);
+		sstVar.putVar(startp,countp,mat_lyap_sst);
+	}	
 				
 	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
 	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
