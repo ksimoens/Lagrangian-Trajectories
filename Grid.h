@@ -51,7 +51,7 @@ class Grid{
 			void fill_SSTs(std::string SSTbegdir,std::string SSTenddir);
 		#endif
 
-		#if defined(LYAPSST) || defined(LYAPRATIO)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 			float get_SSTdiff(float SST0,float SST1);
 		#endif
 		#if defined(LYAPSST) || defined(LYAPRATIO)

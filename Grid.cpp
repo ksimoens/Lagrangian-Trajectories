@@ -203,8 +203,8 @@ Grid::Grid(std::string veldir){
 	float dlogR = 2.0/(NCIRC-1);
 	this->npart = 0;
 	for(int x=0;x<NCIRC;x++){
-		vecR[x] = pow(10,x*dlogR);
-		this->npart += (int)(vecR[x]*NPART+0.5);
+		this->vecR[x] = pow(10,x*dlogR);
+		this->npart += (int)(this->vecR[x]*NPART+0.5);
 	}
 	
 	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
@@ -275,8 +275,8 @@ Grid::Grid(std::string veldir,std::string SSTenddir){
 	float dlogR = 2.0/(NCIRC-1);
 	this->npart = 0;
 	for(int x=0;x<NCIRC;x++){
-		vecR[x] = pow(10,x*dlogR);
-		this->npart += (int)(vecR[x]*NPART+0.5);
+		this->vecR[x] = pow(10,x*dlogR);
+		this->npart += (int)(this->vecR[x]*NPART+0.5);
 	}
 
 	this->particles = new Particle[(nlon-2)*(nlat-2)*(npart+1)]();
@@ -739,14 +739,14 @@ void Grid::initial_particles(){
 		int k = 0;
 		for(int ilat=1;ilat<(nlat-1);ilat++){
 			for(int ilon=1;ilon<(nlon-1);ilon++){
-				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,0.0,0.0,0);
+				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,Vec(0.0,0.0),0.0,0);
 				int l = 1;
 				for(int ring=0;ring<NCIRC;ring++){
 					int nring = (int)(this->vecR[ring]*NPART+0.5);
 					float dtheta = 2.0*M_PI/nring;
 					for(int x=0;x<nring;x++){
 						this->particles[k*(this->npart+1)+l].get_initial_pos(
-							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,0.0,this->vecR[ring],0);
+							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,this->particles[k*(this->npart+1)].getPos(),this->vecR[ring],0);
 						l++;
 					}
 				}
@@ -1231,7 +1231,7 @@ float Grid::euclidean(Vec pos0,Vec pos1){
 }
 #endif
 
-#if defined(LYAPSST) || defined(LYAPRATIO)
+#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 	
 float Grid::get_SSTdiff(float SST0,float SST1){
 
@@ -2361,6 +2361,8 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	float mat_lyap_dist[(nlat-4)][(nlon-4)];
 	float mat_lyap_sst[(nlat-4)][(nlon-4)];
 
+	int ndone = 0;
+
 	//#pragma omp parallel for
 	for(int ring=0;ring<NCIRC;ring++){
 		startp[0] = ring;
@@ -2370,7 +2372,6 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 			for(int ilon=2;ilon<(nlon-2);ilon++){
 
 				int k = (ilon-1)+(nlon-2)*(ilat-1);
-				int l = 1;
 
 				int sum_tau_dist = 0;
 				int sum_tau_sst = 0;
@@ -2383,12 +2384,12 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				for(int x=0;x<nring;x++){
 
-					tau_dist = this->particles[k*(this->npart+1)+l].getTau();
+					tau_dist = this->particles[k*(this->npart+1)+x+ndone+1].getTau();
 					mask_dist = (tau_dist == 0) ? 1 : 0;
 					sum_tau_dist += tau_dist;
 					c_dist += (1-mask_dist);
 
-					tau_sst = this->particles[k*(this->npart+1)+l].getTauSST();
+					tau_sst = this->particles[k*(this->npart+1)+x+ndone+1].getTauSST();
 					mask_sst = (tau_sst == 0) ? 1 : 0;
 					sum_tau_sst += tau_sst;
 					c_sst += (1-mask_sst);
@@ -2412,6 +2413,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 		distVar.putVar(startp,countp,mat_lyap_dist);
 		sstVar.putVar(startp,countp,mat_lyap_sst);
+		ndone += nring;
 	}	
 				
 	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
@@ -2420,6 +2422,155 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	data.putAtt("starting date","31-03-2026");
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	data.putAtt("final distance scaling factor",std::to_string(SCALEFACTOR));
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#endif
+
+#ifdef LYAPINFINITY
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Tracer Scaling with SST Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","Tracer scaling SST");
+
+	netCDF::NcDim lonDim = data.addDim("lon", (nlon-4));
+	netCDF::NcDim latDim = data.addDim("lat", (nlat-4));
+	netCDF::NcDim scaleDim = data.addDim("scale", NCIRC);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(scaleDim);
+	dimVector.push_back(latDim);
+	dimVector.push_back(lonDim);
+
+	std::vector<netCDF::NcDim> dimVector_lon;
+	dimVector_lon.push_back(lonDim);
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+
+	netCDF::NcVar lonVar = data.addVar("lon", netCDF::ncFloat, dimVector_lon);
+	lonVar.putAtt("units", "degrees");
+	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	latVar.putAtt("units", "degrees");
+	float vec_lon[(nlon-4)];
+	float vec_lat[(nlat-4)];
+	
+	for(int j=2;j<(nlon-2);j++){
+		vec_lon[j-2] = (OUTLONMIN+j*OUTLONRES)/M_PI*180;
+	}
+	for(int j=2;j<(nlat-2);j++){
+		vec_lat[j-2] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
+	}
+
+	std::vector<size_t> startp_lon,countp_lon;
+	startp_lon.push_back(0);
+	countp_lon.push_back((nlon-4));
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back((nlat-4));
+	lonVar.putVar(startp_lon,countp_lon,vec_lon);
+	latVar.putVar(startp_lat,countp_lat,vec_lat);
+
+	std::vector<netCDF::NcDim> dimVector_scale;
+	dimVector_scale.push_back(scaleDim);
+
+	netCDF::NcVar scaleVar = data.addVar("scale", netCDF::ncFloat, dimVector_scale);
+	scaleVar.putAtt("units", "kilometres");
+	float vec_scale[NCIRC];
+	for(int j=0;j<NCIRC;j++){
+		vec_scale[j] = this->vecR[j];
+	}
+
+	std::vector<size_t> startp_scale,countp_scale;
+	startp_scale.push_back(0);
+	countp_scale.push_back(NCIRC);
+	scaleVar.putVar(startp_scale,countp_scale,vec_scale);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(nlat-4);
+	countp.push_back(nlon-4);
+
+	netCDF::NcVar deltaSSTvar = data.addVar("deltaSST", netCDF::ncFloat, dimVector);
+	deltaSSTvar.putAtt("units", "°C");
+	float mat_deltaSST[(nlat-4)][(nlon-4)];
+
+	int ndone = 0;
+	//#pragma omp parallel for
+	for(int ring=0;ring<NCIRC;ring++){
+		startp[0] = ring;
+		int nring = (int)(this->vecR[ring]*NPART+0.5);
+
+		for(int ilat=2;ilat<(nlat-2);ilat++){
+			for(int ilon=2;ilon<(nlon-2);ilon++){
+
+				int k = (ilon-1)+(nlon-2)*(ilat-1);
+
+				float sum_dT = 0;
+				int c_dT = 0;
+				int mask_dT;
+				float temp_k = this->particles[k*(this->npart+1)].interpol(this->SSTend,0);
+				float temp_x = 0;
+				float dSST_x = 0;
+
+				for(int x=0;x<nring;x++){
+
+					temp_x = this->particles[k*(this->npart+1)+1+x+ndone].interpol(this->SSTend,0);
+					dSST_x = get_SSTdiff(temp_k,temp_x);
+					mask_dT = (dSST_x < -100) ? 1 : 0;
+					sum_dT += (1-mask_dT)*dSST_x;
+					c_dT += (1-mask_dT);
+
+				}
+
+				mask_dT = (c_dT == 0) ? 1 : 0;
+				c_dT = (mask_dT == 1) ? 1 : c_dT;
+				mat_deltaSST[ilat-2][ilon-2] = sum_dT/c_dT*(1-mask_dT) +
+					(-999.0)*(mask_dT);
+
+				
+			}
+		}
+
+		ndone += nring;
+
+		deltaSSTvar.putVar(startp,countp,mat_deltaSST);
+	}	
+	
+	#ifdef HOUR
+		data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
+	#endif
+	#ifdef DAY
+		std::string yearstr;
+		if(NYEAR == 1){
+			yearstr = "year";
+		} else{
+			yearstr = "years";
+		}
+		data.putAtt("length of trajectories",std::to_string(NYEAR)+" "+yearstr);
+	#endif
+	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
+	data.putAtt("number of particles per grid point",std::to_string(this->npart));
+	data.putAtt("starting date","31-12-2020");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
 	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");

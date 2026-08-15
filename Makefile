@@ -1,7 +1,7 @@
 #Total number of years to integrate.
-OPT += -DNYEAR=1
+#OPT += -DNYEAR=1
 #Total number of months to integrate.
-#OPT += -DNMONTH=1
+OPT += -DNMONTH=1
 #Total number of years over which to start.
 OPT += -DNYEARSTART=1
 #Number of days between starting moments.
@@ -9,13 +9,13 @@ OPT += -DDTSTART=15
 #Number of particles.
 OPT += -DNPART=4
 #Starting year.
-OPT += -DYSTART=2020
+OPT += -DYSTART=2026
 #Starting month.
-OPT += -DMSTART=31
+OPT += -DMSTART=3
 #Diffusion constant.
 OPT += -DD=0.0
 #Timestep (seconds)
-OPT += -DDT=-86400.0
+OPT += -DDT=-3600.0
 #Shape of velocity grid.
 OPT += -DNLON=420
 OPT += -DNLAT=240
@@ -26,8 +26,8 @@ OPT += -DLONRES=0.004363323
 OPT += -DLATMIN=0.1767146
 OPT += -DLATMAX=1.219549
 OPT += -DLATRES=0.004363323
-OPT += -DDAY
-#OPT += -DHOUR
+#OPT += -DDAY
+OPT += -DHOUR
 #Particle properties.
 #OPT += -DSTOREPOS
 #OPT += -DSTOREVEL
@@ -57,9 +57,9 @@ OPT += -DLYAPINFINITY
 OPT += -DNCIRC=20
 #Output grid (Lyapunov / SST / Brownian / LyapSST)
 #OPT += -DOUTLONMIN=-1.568614665
-OPT += -DOUTLONMIN=-1.2217304764
+OPT += -DOUTLONMIN=-1.0471975512
 #OPT += -DOUTLONMAX=0.259617726
-OPT += -DOUTLONMAX=-0.87266462599
+OPT += -DOUTLONMAX=-0.69813170079
 OPT += -DOUTLONRES=0.004363323
 #OPT += -DOUTLONRES=0.00109083078
 #OPT += -DOUTLATMIN=0.1767146

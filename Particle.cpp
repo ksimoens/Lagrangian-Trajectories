@@ -127,7 +127,7 @@ void Particle::free_memory(){
 
 }
 
-void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
+void Particle::get_initial_pos(Vec pos0,float r1,Vec v2,float r0,int t0){
 
 	#ifdef CIRCULAR
 		float r_rand = r0*sqrt(r1);
@@ -178,7 +178,7 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
 		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
 		trans_pos();
-		this->radius=r0;
+		this->radius=haversine(v2)/180*M_PI*R;
 	#endif 
 
 } 
@@ -232,7 +232,7 @@ void Particle::trans_pos(){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
 
 float Particle::haversine(Vec pos1){
 

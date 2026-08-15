@@ -44,9 +44,9 @@ int main(){
 	if(file.good()){
 		std::remove((myparams.w+".nc").c_str());
 	}
-	/*
+	
 	grid.write_simulation(myparams.w,dt_init,dt_sim);
-	*/
+	
 	return 0;
 
 }
