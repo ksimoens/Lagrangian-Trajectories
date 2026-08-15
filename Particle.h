@@ -150,7 +150,7 @@ class Particle{
 			float haversine(Vec pos1);
 		#endif
 
-		void get_initial_pos(Vec pos0,float r1,Vec v2,float r0,int t0);
+		void get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0);
 
 		#ifdef NETWORK
 			void xy_to_lonmu();

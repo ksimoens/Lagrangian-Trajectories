@@ -739,14 +739,14 @@ void Grid::initial_particles(){
 		int k = 0;
 		for(int ilat=1;ilat<(nlat-1);ilat++){
 			for(int ilon=1;ilon<(nlon-1);ilon++){
-				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,Vec(0.0,0.0),0.0,0);
+				this->particles[k*(this->npart+1)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),0.0,0.0,0.0,0);
 				int l = 1;
 				for(int ring=0;ring<NCIRC;ring++){
 					int nring = (int)(this->vecR[ring]*NPART+0.5);
 					float dtheta = 2.0*M_PI/nring;
 					for(int x=0;x<nring;x++){
 						this->particles[k*(this->npart+1)+l].get_initial_pos(
-							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,this->particles[k*(this->npart+1)].getPos(),this->vecR[ring],0);
+							Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*x,0.0,this->vecR[ring],0);
 						l++;
 					}
 				}
