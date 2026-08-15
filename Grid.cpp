@@ -762,6 +762,7 @@ void Grid::initial_particles(){
 
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	int ntime = (int)calc_ndays(MSTART,YSTART);
 
 	//#pragma omp parallel 
 	{
@@ -853,7 +854,7 @@ void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 	float grid_SST[SSTGRIDNLAT][(int)(SSTGRIDNLON/2)];
 	netCDF::NcFile dataFilebeg(SSTbegdir+".nc", netCDF::NcFile::read);
 	netCDF::NcVar SSTVar;
-	SSTVar = dataFilebeg.getVar("SST");
+	SSTVar = dataFilebeg.getVar(TRACER);
 
 	std::vector<size_t> startp,countp;
 	startp.push_back(0);
@@ -879,7 +880,7 @@ void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 	}
 
 	netCDF::NcFile dataFileend(SSTenddir+".nc", netCDF::NcFile::read);
-	SSTVar = dataFileend.getVar("SST");
+	SSTVar = dataFileend.getVar(TRACER);
 
 	startp[1] = 0;
 
@@ -956,10 +957,18 @@ void Grid::fill_SSTs_month(int year,int month,std::string SSTdir){
 	size_t n_zero = 2;
 	mstr = std::string(n_zero - std::min(n_zero, mstr.length()), '0') + mstr;
 	
+	std::string tracer_str;
+	#ifdef TRACER_CHL
+		tracer_str = "CHL";
+	#endif
+	#ifdef TRACER_SST
+		tracer_str = "SST";
+	#endif
+
 	float grid_SST[SSTGRIDNLAT][(int)(SSTGRIDNLON/2)];
-	netCDF::NcFile dataFile(SSTdir+"/SST_"+std::to_string(year)+"_"+mstr+"_transf.nc", netCDF::NcFile::read);
+	netCDF::NcFile dataFile(SSTdir+"/"+tracer_str+"_"+std::to_string(year)+"_"+mstr+"_transf.nc", netCDF::NcFile::read);
 	netCDF::NcVar SSTVar;
-	SSTVar = dataFile.getVar("SST");
+	SSTVar = dataFile.getVar(tracer_str);
 
 	std::vector<size_t> startp,countp;
 	startp.push_back(0);
@@ -975,18 +984,25 @@ void Grid::fill_SSTs_month(int year,int month,std::string SSTdir){
 		startp[0] = day;
 
 		SSTVar.getVar(startp,countp,grid_SST);
-     
+
 		for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
 			for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
 				this->SSTs[ilon+SSTGRIDNLON*(ilat+SSTGRIDNLAT*(day+nday_before))] = 
 						grid_SST[ilat][ilon];
 			}
 		}
-
+		
 		startp[2] = (int)(SSTGRIDNLON/2);
 		SSTVar.getVar(startp,countp,grid_SST);
 
-		for(int ilon=0;ilon<(int)(SSTGRIDNLON/2);ilon++){
+		int upperlim;
+		if(SSTGRIDNLON % 2 != 0){
+			upperlim = (int)(SSTGRIDNLON/2)+1;
+		} else{
+			upperlim = (int)(SSTGRIDNLON/2);
+		}
+
+		for(int ilon=0;ilon<upperlim;ilon++){
 			for(int ilat=0;ilat<SSTGRIDNLAT;ilat++){
 				this->SSTs[(ilon+(int)(SSTGRIDNLON/2))+SSTGRIDNLON*(ilat+SSTGRIDNLAT*(day+nday_before))] = 
 						grid_SST[ilat][ilon];
@@ -1012,7 +1028,7 @@ void Grid::fill_SSTs(std::string SSTenddir){
 	countp.push_back((int)(SSTGRIDNLON/2));
 	netCDF::NcFile dataFileend(SSTenddir+".nc", netCDF::NcFile::read);
 	netCDF::NcVar SSTVar;
-	SSTVar = dataFileend.getVar("SST");
+	SSTVar = dataFileend.getVar(TRACER);
 
 	startp[1] = 0;
 
@@ -1141,7 +1157,6 @@ void Grid::do_simulation(){
 		#endif
 
 		#ifdef LYAPRATIO
-
 			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 			int ndays = (int)calc_ndays(MSTART,YSTART);
@@ -2286,13 +2301,21 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
-	data.putAtt("title","Lyapunov Exponents Scaling with SST Northern Atlantic Ocean");
+	std::string tracer_str;
+	#ifdef TRACER_CHL
+		tracer_str = "CHL";
+	#endif
+	#ifdef TRACER_SST
+		tracer_str = "SST";
+	#endif
+
+	data.putAtt("title","Lyapunov Exponents Scaling with "+tracer_str+" Northern Atlantic Ocean");
 	time_t timestamp;
 	time(&timestamp);
 	data.putAtt("clock time",ctime(&timestamp));
 
 	auto t_start = std::chrono::high_resolution_clock::now();
-	data.putAtt("simulation type","Lyapunov scaling SST");
+	data.putAtt("simulation type","Lyapunov scaling "+tracer_str);
 
 	netCDF::NcDim lonDim = data.addDim("lon", (nlon-4));
 	netCDF::NcDim latDim = data.addDim("lat", (nlat-4));
@@ -2356,7 +2379,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	netCDF::NcVar distVar = data.addVar("lyapunov", netCDF::ncFloat, dimVector);
 	distVar.putAtt("units", "1/days");
-	netCDF::NcVar sstVar = data.addVar("lyapunov_sst", netCDF::ncFloat, dimVector);
+	netCDF::NcVar sstVar = data.addVar("lyapunov_"+tracer_str, netCDF::ncFloat, dimVector);
 	sstVar.putAtt("units", "1/days");
 	float mat_lyap_dist[(nlat-4)][(nlon-4)];
 	float mat_lyap_sst[(nlat-4)][(nlon-4)];
@@ -2393,7 +2416,6 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					mask_sst = (tau_sst == 0) ? 1 : 0;
 					sum_tau_sst += tau_sst;
 					c_sst += (1-mask_sst);
-					l++;
 
 				}
 
@@ -2419,7 +2441,8 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
 	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
 	data.putAtt("number of particles per grid point",std::to_string(this->npart));
-	data.putAtt("starting date","31-03-2026");
+	data.putAtt("starting date","31-03-2025");
+	data.putAtt("selected tracer",tracer_str);
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	data.putAtt("final distance scaling factor",std::to_string(SCALEFACTOR));
 	auto t_end = std::chrono::high_resolution_clock::now();
