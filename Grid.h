@@ -32,7 +32,7 @@ class Grid{
 			size_t calc_nhours(int current_month,int current_year);
 			void fill_vels_month(int year,int month,std::string veldir);
 		#endif
-		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 			size_t calc_ndays(int current_month,int current_year);
 		#endif
 		//void get_mus(std::string veldir);
@@ -51,10 +51,10 @@ class Grid{
 			void fill_SSTs(std::string SSTbegdir,std::string SSTenddir);
 		#endif
 
-		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 			float get_SSTdiff(float SST0,float SST1);
 		#endif
-		#if defined(LYAPSST) || defined(LYAPRATIO)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(TRACERPATH)
 			void fill_SSTs(std::string SSTbegdir);
 			void fill_SSTs_month(int year,int month,std::string SSTdir);
 		#endif
@@ -78,7 +78,7 @@ class Grid{
 		#ifdef BROWNIAN
 			Grid(float r,std::string veldir);
 		#endif
-		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 			Grid(std::string veldir,std::string SSTbegdir);
 		#endif
 		~Grid(){delete[] vels; vels = 0; 

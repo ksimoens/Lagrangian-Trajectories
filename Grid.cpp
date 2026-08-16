@@ -287,6 +287,40 @@ Grid::Grid(std::string veldir,std::string SSTenddir){
 }
 #endif
 
+#ifdef TRACERPATH
+Grid::Grid(std::string veldir,std::string SSTbegdir){
+
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elif HOUR
+		this->Nstart = 1;
+		this->vels = new Vec[NLON*NLAT*calc_nhours(MSTART,YSTART)]();
+	#endif
+	
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
+	this->SSTs = new float[SSTGRIDNLON*SSTGRIDNLAT*calc_ndays(MSTART,YSTART)];
+	/*this->vecR = new float[NCIRC]();
+	float dlogR = 2.0/(NCIRC-1);
+	this->npart = 0;
+	for(int x=0;x<NCIRC;x++){
+		vecR[x] = pow(10,x*dlogR);
+		this->npart += (int)(vecR[x]*NPART+0.5);
+	}*/
+	this->vecR = 0;
+	this->npart = 0;
+	this->particles = new Particle[nlat*(NPART+1)]();
+
+	fill_vels(veldir);
+	fill_SSTs(SSTbegdir);
+	initial_particles();
+
+}
+#endif
+
 #ifdef DAY
 size_t Grid::calc_ndays(int current_year){
 
@@ -315,7 +349,7 @@ size_t Grid::calc_ndays(int current_year){
 	return(nday);
 
 }
-#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY))
+#elif defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH))
 size_t Grid::calc_nhours(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -404,7 +438,7 @@ size_t Grid::calc_nhours(int current_month,int current_year){
 
 #endif
 
-#if defined(LYAPSST) || defined(LYAPRATIO)
+#if defined(LYAPSST) || defined(LYAPRATIO) || defined(TRACERPATH)
 size_t Grid::calc_ndays(int current_month,int current_year){
 
 	if(current_month < 1){
@@ -472,7 +506,7 @@ void Grid::fill_vels(std::string veldir){
 			}
 		#endif
 	#endif
-	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || LYAPINFINITY) 
+	#if defined(HOUR) & (defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)) 
 		
 		int vec_month[NMONTH];
 		int vec_year[NMONTH];
@@ -571,7 +605,7 @@ void Grid::fill_vels_year(int year,std::string veldir){
 void Grid::fill_vels_month(int year,int month,std::string veldir){
 
 	size_t nhour;
-	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+	#if defined(SST) || defined(LYAPUNOV) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 		size_t nhour_before = calc_nhours(month-1,year);
 	#elif defined(BROWNIAN)
 		size_t nhour_before = calc_nhours(month,year);
@@ -792,6 +826,34 @@ void Grid::initial_particles(){
 
 	#endif
 
+	#ifdef TRACERPATH
+
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	int ntime = (int)calc_ndays(MSTART,YSTART);
+	float dtheta = 2.0*M_PI/NPART;
+
+	//#pragma omp parallel 
+	{
+		//#pragma omp for
+		for(int ilat=0;ilat<nlat;ilat++){
+				this->particles[ilat*(NPART+1)].get_initial_pos(Vec(OUTLONMIN,OUTLATMIN+ilat*OUTLATRES),0.0,0.0,0.0,0);
+				float temp_k = this->particles[ilat*(NPART+1)].interpol(this->SSTs,ntime-1);
+				
+				for(int x=1;x<NPART+1;x++){
+					this->particles[ilat*(NPART+1)+x].get_initial_pos(
+							Vec(OUTLONMIN,OUTLATMIN+ilat*OUTLATRES),dtheta*x,0.0,RADIUS,0);
+					float temp_l = this->particles[ilat*(NPART+1)+x].interpol(this->SSTs,ntime-1);
+					this->particles[ilat*(NPART+1)+x].setSSTdiff(get_SSTdiff(temp_k,temp_l),28*NMONTH);
+					this->particles[ilat*(NPART+1)+x].setDistance(this->particles[ilat*(NPART+1)].getPos(),28*NMONTH);
+				}
+
+			std::cout << this->particles[ilat*(NPART+1)+10].getPathSST()[28*NMONTH] << std::endl;
+				
+		}
+	}
+
+	#endif
+
 
 
 }
@@ -906,7 +968,7 @@ void Grid::fill_SSTs(std::string SSTbegdir,std::string SSTenddir){
 
 #endif
 
-#if defined(LYAPSST) || defined(LYAPRATIO)
+#if defined(LYAPSST) || defined(LYAPRATIO) || defined(TRACERPATH)
 
 void Grid::fill_SSTs(std::string SSTbegdir){
 
@@ -1246,7 +1308,7 @@ float Grid::euclidean(Vec pos0,Vec pos1){
 }
 #endif
 
-#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 	
 float Grid::get_SSTdiff(float SST0,float SST1){
 

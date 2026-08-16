@@ -54,6 +54,11 @@ Particle::Particle(){
 		this->tau = 0;
 		this->radius = 0;
 	#endif
+
+	#ifdef TRACERPATH
+		this->path_SST = new float[NMONTH*28+1];
+		this->path_pos = new float[NMONTH*28+1];
+	#endif
 }
 
 /*Particle::Particle(float x0,float y0,int t0){
@@ -124,6 +129,12 @@ void Particle::free_memory(){
 		delete[] this->path_SST;
 		this->path_SST = 0;
 	#endif 
+	#ifdef TRACERPATH
+		delete[] this->path_SST;
+		delete[] this->path_pos;
+		this->path_SST = 0;
+		this->path_pos = 0;
+	#endif
 
 }
 
@@ -174,14 +185,25 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setY(pos0.getY());
 	#endif
 
-	#if defined(LYAPRATIO) || defined(LYAPCIRC) || defined(LYAPINFINITY)
+	#if defined(LYAPRATIO) || defined(LYAPCIRC) || defined(LYAPINFINITY) || defined(TRACERPATH)
 		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
 		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
 		trans_pos();
-		this->radius=r0;
 	#endif 
 
 } 
+
+#ifdef TRACERPATH
+
+void Particle::setDistance(Vec pos1,int t){
+
+	float dist = haversine(pos1);
+	int mask = (dist < -100.0) ? 1 : 0;
+	this->path_pos[t] = (1-mask)*dist/180*M_PI*R/1000 + mask*(-999.0);
+
+}
+
+#endif
 
 // https://neacsu.net/geodesy/snyder/7-pseudocylindrical/sect_30/
 
@@ -203,7 +225,7 @@ float Particle::get_mu(float y0){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 
 float Particle::fun_x(float lon,float lat){
 
@@ -232,7 +254,7 @@ void Particle::trans_pos(){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 
 float Particle::haversine(Vec pos1){
 
@@ -390,7 +412,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 }
 
-#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 
 float Particle::interpol(float* sstgrid,int t){
 

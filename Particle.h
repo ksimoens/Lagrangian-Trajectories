@@ -39,12 +39,16 @@ class Particle{
 		#ifdef LYAPINFINITY
 			float radius{};
 		#endif
+		#ifdef TRACERPATH
+			float* path_SST{};
+			float* path_pos{};
+		#endif
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 			float fun_x(float lon,float lat);
 			float fun_y(float lat);
 		#endif
@@ -119,11 +123,17 @@ class Particle{
 		#ifdef LYAPINFINITY
 			float getRadius(){return this->radius;};
 		#endif
+		#ifdef TRACERPATH
+			void setSSTdiff(float dSST0,int t){this->path_SST[t] = dSST0;};
+			void setDistance(Vec pos1,int t);
+			float* getPathSST(){return path_SST;};
+			float* getPathPos(){return path_pos;};
+		#endif
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};
 		void set_starttime(int t0){this->starttime=t0;};
 		
-		#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+		#if defined(SST) || defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 			float interpol(float* SSTgrid,int t);
 		#endif
 
@@ -146,7 +156,7 @@ class Particle{
 			void RK_move(Vec* velgrid, int t,Vec dW);
 		#endif
 
-		#if defined(LYAPCIRC) || defined(SST) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+		#if defined(LYAPCIRC) || defined(SST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 			float haversine(Vec pos1);
 		#endif
 
