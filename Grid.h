@@ -22,6 +22,8 @@ class Grid{
 		int* outtimes;
 		float* vecR;
 		int npart;
+		int ntarget;
+		Particle* targets;
 		
 		void fill_vels(std::string veldir);
 		void initial_particles();
@@ -75,7 +77,7 @@ class Grid{
 		#ifdef SST
 			Grid(float r,std::string veldir,std::string SSTbegdir,std::string SSTenddir);
 		#endif
-		#ifdef BROWNIAN
+		#if defined(BROWNIAN) || defined(DISTRIBUTION)
 			Grid(float r,std::string veldir);
 		#endif
 		#if defined(LYAPSST) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
@@ -87,7 +89,8 @@ class Grid{
 				delete[] SSTbeg; SSTbeg = 0; 
 				delete[] SSTend; SSTend = 0; 
 				delete[] SSTs; SSTs = 0;
-				delete[] vecR; vecR = 0;};
+				delete[] vecR; vecR = 0;
+				delete[] targets; targets=0;};
 
 		//void timestep(int t);
 		Particle* get_particles(){return particles;};

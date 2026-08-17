@@ -43,12 +43,16 @@ class Particle{
 			float* path_SST{};
 			float* path_pos{};
 		#endif
+		#ifdef DISTRIBUTION
+			Particle* targets{};
+			int* arrivals{};
+		#endif
 
 		void trans_pos();
 		float fun_lon(float x0,float lat);
 		float fun_lat(float mu);
 		float get_mu(float y0);
-		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
+		#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH) || defined(DISTRIBUTION)
 			float fun_x(float lon,float lat);
 			float fun_y(float lat);
 		#endif
@@ -130,6 +134,11 @@ class Particle{
 			void setDistance(Vec pos1,int t);
 			float* getPathSST(){return path_SST;};
 			float* getPathPos(){return path_pos;};
+		#endif
+		#ifdef DISTRIBUTION
+			void set_targets(Particle* vec_target,int ntarget);
+			Particle* get_targets(){return this->targets;};
+			int* get_arrivals(){return this->arrivals;};
 		#endif
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};

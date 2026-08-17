@@ -321,6 +321,58 @@ Grid::Grid(std::string veldir,std::string SSTbegdir){
 }
 #endif
 
+#ifdef DISTRIBUTION
+Grid::Grid(float r,std::string veldir){
+
+	this->outtimes = 0;
+	#ifdef DAY
+		this->Nstart = calc_ndays(NYEARSTART+YSTART)/DTSTART;
+		this->vels = new Vec[NLON*NLAT*calc_ndays(NYEAR+NYEARSTART+YSTART)]();
+	#elif HOUR
+		this->Nstart = 1;
+		int endyear = YSTART;
+		int endmonth = MSTART;
+		for(int i=0;i<NMONTH;i++){
+			endmonth++;
+			if(endmonth > 12){
+				endmonth = 1;
+				endyear++;
+			}
+		}
+		this->vels = new Vec[NLON*NLAT*calc_nhours(endmonth,endyear)]();
+		float dt = log10(NMONTH*28*24)/(NTIMES-1);
+		for(int i=0;i<NTIMES;i++){
+			this->outtimes[i] = (int)floor(pow(10,i*dt)+0.5);
+		}
+	#endif
+	
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	this->particles = new Particle[nlon*nlat*NPART]();
+	this->radius = r;
+	this->network = 0;
+	this->SSTbeg = 0;
+	this->SSTend = 0;
+	this->SSTs = 0;
+	this->vecR = 0;
+	float dtheta = 1.1*(2.0*r)/RADIUS;
+	this->ntarget = (int)(2.0*M_PI/dtheta);
+	dtheta = 2.0*M_PI/this->ntarget;
+	this->targets = new Particle[nlon*nlat*ntarget];
+	for(int ilat=0;ilat<nlat;ilat++){
+		for(int ilon=0;ilon<nlon;ilon++){
+			for(int k=0;k<this->ntarget;k++){
+				this->targets[k+this->ntarget*(ilon+ilat*nlon)].get_initial_pos(Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES),dtheta*k,0.0,RADIUS,0);
+			}
+		}
+	}
+
+	fill_vels(veldir);
+	initial_particles();
+
+}
+#endif
+
 #ifdef DAY
 size_t Grid::calc_ndays(int current_year){
 
@@ -850,6 +902,34 @@ void Grid::initial_particles(){
 		}
 	}
 
+	#endif
+
+	#ifdef DISTRIBUTION
+
+	std::random_device rd;
+	//std::seed_seq seed{static_cast<int>(rd()),omp_get_thread_num()};
+	std::mt19937_64 rng;
+	std::uniform_real_distribution<float> unif(0, 1);
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+	Particle* vec_target = new Particle[this->ntarget];
+
+	for(int ilat=0;ilat<nlat;ilat++){
+		for(int ilon=0;ilon<nlon;ilon++){
+			Vec pos0 = Vec(OUTLONMIN+ilon*OUTLONRES,OUTLATMIN+ilat*OUTLATRES);
+			for(int k=0;k<this->ntarget;k++){
+				vec_target[k] = this->targets[k+this->ntarget*(ilon+ilat*nlon)];
+			}
+			for(int j=0;j<NPART;j++){
+				float r1 = unif(rng);
+				float r2 = unif(rng);
+				this->particles[j+NPART*(ilon+ilat*nlon)].get_initial_pos(pos0,r1,r2,this->radius,0);
+				this->particles[j+NPART*(ilon+ilat*nlon)].set_targets(vec_target,this->ntarget);
+			}
+		}
+	}
+	
 	#endif
 
 

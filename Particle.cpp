@@ -59,6 +59,9 @@ Particle::Particle(){
 		this->path_SST = new float[NMONTH*28+1];
 		this->path_pos = new float[NMONTH*28+1];
 	#endif
+	#ifdef DISTRIBUTION
+		this->targets = 0;
+	#endif
 }
 
 /*Particle::Particle(float x0,float y0,int t0){
@@ -135,6 +138,12 @@ void Particle::free_memory(){
 		this->path_SST = 0;
 		this->path_pos = 0;
 	#endif
+	#ifdef DISTRIBUTION
+		// this->targets points to memory in Grid.cpp's this->targets
+		// deleted when this is deleted in this->targets
+		delete[] this->arrivals;
+		this->arrivals = 0;
+	#endif
 
 }
 
@@ -185,7 +194,7 @@ void Particle::get_initial_pos(Vec pos0,float r1,float r2,float r0,int t0){
 		this->pos.setY(pos0.getY());
 	#endif
 
-	#if defined(LYAPRATIO) || defined(LYAPCIRC) || defined(LYAPINFINITY) || defined(TRACERPATH)
+	#if defined(LYAPRATIO) || defined(LYAPCIRC) || defined(LYAPINFINITY) || defined(TRACERPATH) || defined(DISTRIBUTION)
 		this->pos.setX(fun_x(pos0.getX(),pos0.getY())+r0*cos(r1));
 		this->pos.setY(fun_y(pos0.getY())+r0*sin(r1));
 		trans_pos();
@@ -200,6 +209,21 @@ void Particle::setDistance(Vec pos1,int t){
 	float dist = haversine(pos1);
 	int mask = (dist < -100.0) ? 1 : 0;
 	this->path_pos[t] = (1-mask)*dist/180*M_PI*R/1000 + mask*(-999.0);
+
+}
+
+#endif
+
+#ifdef DISTRIBUTION
+
+void Particle::set_targets(Particle* vec_target,int ntarget){
+
+	this->targets = new Particle[ntarget];
+	this->arrivals = new int[ntarget];
+	for(int i=0;i<ntarget;i++){
+		this->targets[i] = vec_target[i];
+		this->arrivals[i] = -999;
+	}
 
 }
 
@@ -225,7 +249,7 @@ float Particle::get_mu(float y0){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH) || defined(DISTRIBUTION)
 
 float Particle::fun_x(float lon,float lat){
 
