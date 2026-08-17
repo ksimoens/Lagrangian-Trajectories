@@ -846,8 +846,6 @@ void Grid::initial_particles(){
 					this->particles[ilat*(NPART+1)+x].setSSTdiff(get_SSTdiff(temp_k,temp_l),28*NMONTH);
 					this->particles[ilat*(NPART+1)+x].setDistance(this->particles[ilat*(NPART+1)].getPos(),28*NMONTH);
 				}
-
-			std::cout << this->particles[ilat*(NPART+1)+10].getPathSST()[28*NMONTH] << std::endl;
 				
 		}
 	}
@@ -1222,17 +1220,17 @@ void Grid::do_simulation(){
 			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 			int ndays = (int)calc_ndays(MSTART,YSTART);
-			int mask_done_sst;
-			int mask_done_dist;
-			int mask_dist;
-			int mask_sst;
-			int mask_sst_out;
-			float havdist;
-			float temp_j;
-			float temp_x;
-			float SSTdiff;
 			#pragma omp for
 			for(int j=0;j<((nlon-2)*(nlat-2));j++){
+				int mask_done_sst;
+				int mask_done_dist;
+				int mask_dist;
+				int mask_sst;
+				int mask_sst_out;
+				float havdist;
+				float temp_j;
+				float temp_x;
+				float SSTdiff;
 				Vec dW;
 				std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
 				for(int day=ndays-1;day > ndays-NMONTH*28-1;day--){
@@ -1287,6 +1285,42 @@ void Grid::do_simulation(){
 			}
 
 		#endif
+
+		#ifdef TRACERPATH
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+			int ndays = (int)calc_ndays(MSTART,YSTART);
+			#pragma omp for
+			for(int j=0;j<nlat;j++){
+				int mask_dist;
+				float temp_j;
+				float temp_x;
+				Vec dW;
+				std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
+				int k = 28*NMONTH-1;
+				for(int day=ndays-1;day > ndays-NMONTH*28-1;day--){
+					for(int hour=0;hour<24;hour++){
+						for(int x=0;x<(NPART+1);x++){
+							dW.setX(norm(rng));
+							dW.setY(norm(rng));
+							this->particles[j*(NPART+1)+x].RK_move(this->vels,(day+1)*24-1-hour,dW);
+						}
+					}
+
+					temp_j = this->particles[j*(NPART+1)].interpol(this->SSTs,day-1);
+
+					for(int x=1;x<(NPART+1);x++){
+						this->particles[j*(NPART+1)+x].setDistance(this->particles[j*(NPART+1)].getPos(),k);
+						mask_dist = (this->particles[j*(NPART+1)+x].getPathPos()[k] < -100) ? 1 : 0;
+						temp_x = this->particles[j*(NPART+1)+x].interpol(this->SSTs,day-1);
+						this->particles[j*(NPART+1)+x].setSSTdiff((1-mask_dist)*get_SSTdiff(temp_j,temp_x)+(-999.0)*mask_dist,k);
+					}
+
+					k--;
+				}
+			}
+
+		#endif
+		
 	}
 }
 
@@ -2655,6 +2689,127 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	data.putAtt("number of grid points",std::to_string((nlon-2)*(nlat-2)));
 	data.putAtt("number of particles per grid point",std::to_string(this->npart));
 	data.putAtt("starting date","31-12-2020");
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#endif
+
+#ifdef TRACERPATH
+
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	std::string tracer_str;
+	std::string units_str;
+	#ifdef TRACER_CHL
+		tracer_str = "CHL";
+		units_str = "mg/m2/day";
+	#endif
+	#ifdef TRACER_SST
+		tracer_str = "SST";
+		units_str = "°C";
+	#endif
+
+	data.putAtt("title","Tracer divergence with "+tracer_str+" Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("simulation type","tracer "+tracer_str);
+
+	netCDF::NcDim latDim = data.addDim("lat", nlat);
+	netCDF::NcDim partDim = data.addDim("particle", NPART);
+	netCDF::NcDim timeDim = data.addDim("time", 28*NMONTH+1);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(timeDim);
+	dimVector.push_back(partDim);
+	dimVector.push_back(latDim);
+
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+
+	netCDF::NcVar latVar = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	latVar.putAtt("units", "degrees");
+	float vec_lat[nlat];
+
+	for(int j=0;j<nlat;j++){
+		vec_lat[j] = (OUTLATMIN+j*OUTLATRES)/M_PI*180;
+	}
+
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back(nlat);
+	latVar.putVar(startp_lat,countp_lat,vec_lat);
+
+	std::vector<netCDF::NcDim> dimVector_time;
+	dimVector_time.push_back(timeDim);
+
+	netCDF::NcVar timeVar = data.addVar("time", netCDF::ncFloat, dimVector_time);
+	timeVar.putAtt("units", "days");
+	float vec_time[NMONTH*28+1];
+
+	for(int j=0;j<28*NMONTH+1;j++){
+		vec_time[j] = j;
+	}
+
+	std::vector<size_t> startp_time,countp_time;
+	startp_time.push_back(0);
+	countp_time.push_back(28*NMONTH);
+	timeVar.putVar(startp_time,countp_time,vec_time);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(1);
+	countp.push_back(NPART);
+	countp.push_back(nlat);
+
+	netCDF::NcVar distVar = data.addVar("distance", netCDF::ncFloat, dimVector);
+	distVar.putAtt("units", "km");
+	netCDF::NcVar sstVar = data.addVar(tracer_str+"diff", netCDF::ncFloat, dimVector);
+	sstVar.putAtt("units", units_str);
+	float mat_lyap_dist[NPART][nlat];
+	float mat_lyap_sst[NPART][nlat];
+
+	//#pragma omp parallel for
+	for(int t=0;t<NMONTH*28+1;t++){
+		startp[0] = t;
+
+		for(int ilat=0;ilat<nlat;ilat++){
+
+			for(int p=1;p<NPART+1;p++){
+
+				mat_lyap_dist[p-1][ilat] = 
+					this->particles[ilat*(NPART+1)+p].getPathPos()[t];
+				mat_lyap_sst[p-1][ilat] = 
+					this->particles[ilat*(NPART+1)+p].getPathSST()[t];
+				
+			}
+		}
+
+		distVar.putVar(startp,countp,mat_lyap_dist);
+		sstVar.putVar(startp,countp,mat_lyap_sst);
+	}	
+				
+	data.putAtt("length of trajectories",std::to_string(NMONTH)+" months");
+	data.putAtt("number of grid points",std::to_string(nlat));
+	data.putAtt("number of particles per grid point",std::to_string(NPART));
+	data.putAtt("initial separation",std::to_string(RADIUS)+" km");
+	data.putAtt("longitude",std::to_string(OUTLONMIN/M_PI*180)+"°E");
+	data.putAtt("starting date","31-03-2025");
+	data.putAtt("selected tracer",tracer_str);
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();

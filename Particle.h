@@ -58,7 +58,9 @@ class Particle{
 		Vec interpol(Vec pos0,float lat,Vec* velgrid,int k,int t);
 		#ifndef LYAPCIRC
 			#ifndef LYAPRATIO
-				void RK_move(Vec* velgrid, int t,Vec dW);
+				#ifndef TRACERPATH
+					void RK_move(Vec* velgrid, int t,Vec dW);
+				#endif
 			#endif
 		#endif
 		void update_pos(float K,Vec dW);
@@ -152,7 +154,7 @@ class Particle{
 		#ifdef LYAPSST
 			void make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int Ntime);
 		#endif
-		#if defined(LYAPCIRC) || defined(LYAPRATIO)
+		#if defined(LYAPCIRC) || defined(LYAPRATIO) || defined(TRACERPATH)
 			void RK_move(Vec* velgrid, int t,Vec dW);
 		#endif
 

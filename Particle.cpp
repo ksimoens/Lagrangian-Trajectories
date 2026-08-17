@@ -334,7 +334,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int k,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 		n = -1;
 	#endif
 
@@ -385,7 +385,7 @@ Vec Particle::interpol(Vec pos0,float lat,Vec* velgrid,int t){
 
 	int n = 1;
 
-	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY)
+	#if defined(LYAPUNOV) || defined(SST) || defined(LYAPSST) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
 		n = -1;
 	#endif
 
