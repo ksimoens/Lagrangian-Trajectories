@@ -355,7 +355,7 @@ Grid::Grid(float r,std::string veldir){
 	this->SSTend = 0;
 	this->SSTs = 0;
 	this->vecR = 0;
-	float dtheta = 1.1*(2.0*r)/RADIUS;
+	float dtheta = 1.2*(2.0*r)/RADIUS;
 	this->ntarget = (int)(2.0*M_PI/dtheta);
 	dtheta = 2.0*M_PI/this->ntarget;
 	this->targets = new Particle[nlon*nlat*ntarget];
@@ -623,7 +623,11 @@ void Grid::fill_vels_year(int year,std::string veldir){
 
 	float grid_time_x[NLAT][NLON];
 	float grid_time_y[NLAT][NLON];
-	netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(YSTART-(NYEAR-1)+year)+".nc", netCDF::NcFile::read);
+	#ifdef LYAPINFINITY
+		netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(YSTART-(NYEAR-1)+year)+".nc", netCDF::NcFile::read);
+	#else
+		netCDF::NcFile dataFile(veldir+"/vel_"+std::to_string(YSTART+year)+".nc", netCDF::NcFile::read);
+	#endif
 	netCDF::NcVar velxVar;
 	velxVar = dataFile.getVar("u");
 	netCDF::NcVar velyVar;
@@ -1200,7 +1204,7 @@ void Grid::do_simulation(){
 	{
 
 		std::random_device rd;
-		std::seed_seq seed{static_cast<int>(rd()),2};//omp_get_thread_num()};
+		std::seed_seq seed{static_cast<int>(rd()),omp_get_thread_num()};
 		std::mt19937_64 rng(seed);
 
 		#if defined(CIRCULAR) || defined(NETWORK)
@@ -1399,6 +1403,15 @@ void Grid::do_simulation(){
 				}
 			}
 
+		#endif
+		#ifdef DISTRIBUTION
+			int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+			int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+			#pragma omp for
+			for(int j=0;j<NPART*nlon*nlat;j++){
+				this->particles[j].make_trajectory(this->vels,rng,this->radius);
+			}
+			
 		#endif
 		
 	}
@@ -2890,6 +2903,149 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	data.putAtt("longitude",std::to_string(OUTLONMIN/M_PI*180)+"°E");
 	data.putAtt("starting date","31-03-2025");
 	data.putAtt("selected tracer",tracer_str);
+	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
+	auto t_end = std::chrono::high_resolution_clock::now();
+	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();
+	data.putAtt("initialisation wall time",std::to_string(dt_init/1000)+" seconds");
+	data.putAtt("simulation wall time",std::to_string(dt_sim/1000)+" seconds");
+	data.putAtt("output wall time",std::to_string(dt_writ/1000)+" seconds");
+
+}
+
+#endif
+
+#ifdef DISTRIBUTION
+void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
+
+	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
+
+	data.putAtt("title","Time distributions Northern Atlantic Ocean");
+	time_t timestamp;
+	time(&timestamp);
+	data.putAtt("clock time",ctime(&timestamp));
+
+	auto t_start = std::chrono::high_resolution_clock::now();
+	data.putAtt("initial condition","circular");
+	data.putAtt("radius",std::to_string(this->radius)+" km");
+
+	data.putAtt("simulation type","time distributions");
+
+	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
+	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
+
+	netCDF::NcDim partDim = data.addDim("particles", NPART);
+	netCDF::NcDim targDim = data.addDim("targets", this->ntarget);
+	netCDF::NcDim latDim = data.addDim("lat", nlat);
+	netCDF::NcDim lonDim = data.addDim("lon", nlon);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(partDim);
+	dimVector.push_back(targDim);
+	dimVector.push_back(latDim);
+	dimVector.push_back(lonDim);
+
+	std::vector<netCDF::NcDim> dimVector_target;
+	dimVector_target.push_back(targDim);
+	dimVector_target.push_back(latDim);
+	dimVector_target.push_back(lonDim);
+
+	std::vector<size_t> startp_target,countp_target;
+	startp_target.push_back(0);
+	startp_target.push_back(0);
+	startp_target.push_back(0);
+	countp_target.push_back(this->ntarget);
+	countp_target.push_back(nlat);
+	countp_target.push_back(nlon);
+
+	netCDF::NcVar varTargLon = data.addVar("target_lon", netCDF::ncFloat, dimVector_target);
+	varTargLon.putAtt("units", "degrees east");
+	netCDF::NcVar varTargLat = data.addVar("target_lat", netCDF::ncFloat, dimVector_target);
+	varTargLat.putAtt("units", "degrees north");
+	float mat_TargLon[this->ntarget][nlat][nlon];
+	float mat_TargLat[this->ntarget][nlat][nlon];
+
+	for(int ilat=0;ilat<nlat;ilat++){
+		for(int ilon=0;ilon<nlon;ilon++){
+			for(int t=0;t<this->ntarget;t++){
+				mat_TargLon[t][ilat][ilon] = this->targets[t+this->ntarget*(ilon+ilat*nlon)].getPos().getX()/M_PI*180;
+				mat_TargLat[t][ilat][ilon] = lat_mu(this->targets[t+this->ntarget*(ilon+ilat*nlon)].getPos().getY())/M_PI*180;
+			}
+		}
+	}
+
+	varTargLon.putVar(startp_target,countp_target,mat_TargLon);
+	varTargLat.putVar(startp_target,countp_target,mat_TargLat);
+
+	std::vector<netCDF::NcDim> dimVector_lon;
+	dimVector_lon.push_back(lonDim);
+
+	std::vector<size_t> startp_lon,countp_lon;
+	startp_lon.push_back(0);
+	countp_lon.push_back(nlon);
+
+	netCDF::NcVar varLon = data.addVar("lon", netCDF::ncFloat, dimVector_lon);
+	varLon.putAtt("units", "degrees east");
+	float vec_lon[nlon];
+
+	for(int ilon=0;ilon<nlon;ilon++){
+		vec_lon[ilon] = (OUTLONMIN+ilon*OUTLONRES)/M_PI*180;
+	}
+
+	varLon.putVar(startp_lon,countp_lon,vec_lon);
+
+	std::vector<netCDF::NcDim> dimVector_lat;
+	dimVector_lat.push_back(latDim);
+
+	std::vector<size_t> startp_lat,countp_lat;
+	startp_lat.push_back(0);
+	countp_lat.push_back(nlat);
+
+	netCDF::NcVar varLat = data.addVar("lat", netCDF::ncFloat, dimVector_lat);
+	varLat.putAtt("units", "degrees north");
+	float vec_lat[nlat];
+
+	for(int ilat=0;ilat<nlat;ilat++){
+		vec_lat[ilat] = (OUTLATMIN+ilat*OUTLATRES)/M_PI*180;
+	}
+
+	varLat.putVar(startp_lat,countp_lat,vec_lat);
+
+	std::vector<size_t> startp,countp;
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	startp.push_back(0);
+	countp.push_back(NPART);
+	countp.push_back(1);
+	countp.push_back(1);
+	countp.push_back(1);	
+
+	netCDF::NcVar varArriv = data.addVar("arrival", netCDF::ncInt, dimVector);
+	varArriv.putAtt("units", "days");
+	float vec_arriv[NPART];	
+
+	for(int ilat=0;ilat<nlat;ilat++){
+		startp[2] = ilat;
+		for(int ilon=0;ilon<nlon;ilon++){
+			startp[3] = ilon;
+			for(int t=0;t<this->ntarget;t++){
+				startp[1] = t;
+				for(int p=0;p<NPART;p++){
+					vec_arriv[p] = this->particles[p+NPART*(ilon+ilat*nlon)].get_arrivals()[t];
+				}
+				varArriv.putVar(startp,countp,vec_arriv);
+			}
+		}
+	}
+
+		
+
+	data.putAtt("length of trajectories",std::to_string(NYEAR)+" years");
+	data.putAtt("number of grid points",std::to_string(nlat*nlon));
+	data.putAtt("number of particles per gridpoint",strname(NPART));
+	data.putAtt("target size",std::to_string(this->radius)+" km");
+	data.putAtt("target distance",std::to_string(RADIUS)+" km");
+	data.putAtt("starting date","01-01-"+std::to_string(YSTART));
 	data.putAtt("diffusion constant",std::to_string(D)+" m^2/s");
 	auto t_end = std::chrono::high_resolution_clock::now();
 	double dt_writ = std::chrono::duration<double, std::milli>(t_end-t_start).count();

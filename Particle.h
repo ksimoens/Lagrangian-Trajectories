@@ -44,6 +44,7 @@ class Particle{
 			float* path_pos{};
 		#endif
 		#ifdef DISTRIBUTION
+			int ntarget{};
 			Particle* targets{};
 			int* arrivals{};
 		#endif
@@ -68,7 +69,7 @@ class Particle{
 			#endif
 		#endif
 		void update_pos(float K,Vec dW);
-		#if defined(BROWNIAN)
+		#if defined(BROWNIAN) || defined(DISTRIBUTION)
 			float haversine(Vec pos1);
 		#endif
 
@@ -151,7 +152,7 @@ class Particle{
 		#ifdef NETWORK
 			void make_trajectory(Vec* velgrid, std::set<int> IDvec, int* network, int Nstart, int i, int j,std::mt19937_64 &rng);
 		#endif
-		#ifdef CIRCULAR
+		#if defined(CIRCULAR)
 			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng);
 		#endif
 		#if defined(LYAPUNOV) || defined(SST) || defined(LYAPINFINITY)
@@ -162,6 +163,9 @@ class Particle{
 		#endif
 		#ifdef LYAPSST
 			void make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int Ntime);
+		#endif
+		#if defined(DISTRIBUTION)
+			void make_trajectory(Vec* velgrid,std::mt19937_64 &rng,float r);
 		#endif
 		#if defined(LYAPCIRC) || defined(LYAPRATIO) || defined(TRACERPATH)
 			void RK_move(Vec* velgrid, int t,Vec dW);

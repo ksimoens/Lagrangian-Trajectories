@@ -61,6 +61,7 @@ Particle::Particle(){
 	#endif
 	#ifdef DISTRIBUTION
 		this->targets = 0;
+		this->ntarget = 0;
 	#endif
 }
 
@@ -218,6 +219,7 @@ void Particle::setDistance(Vec pos1,int t){
 
 void Particle::set_targets(Particle* vec_target,int ntarget){
 
+	this->ntarget = ntarget;
 	this->targets = new Particle[ntarget];
 	this->arrivals = new int[ntarget];
 	for(int i=0;i<ntarget;i++){
@@ -278,7 +280,7 @@ void Particle::trans_pos(){
 
 }
 
-#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH)
+#if defined(SST) || defined(BROWNIAN) || defined(LYAPCIRC) || defined(LYAPRATIO) || defined(LYAPINFINITY) || defined(TRACERPATH) || defined(DISTRIBUTION)
 
 float Particle::haversine(Vec pos1){
 
@@ -292,8 +294,13 @@ float Particle::haversine(Vec pos1){
 
 	float a = sin(dlat/2)*sin(dlat/2)+cos(lat0)*cos(lat1)*sin(dlon/2)*sin(dlon/2);
 
-	return(2.0*atan2(sqrt(a),sqrt(1-a))/M_PI*180.0*(1-mask0)*(1-mask1)+
-			(-999.0)*((1-mask0)*mask1+(1-mask1)*mask0+mask1*mask0));
+	#ifndef DISTRIBUTION
+		return(2.0*atan2(sqrt(a),sqrt(1-a))/M_PI*180.0*(1-mask0)*(1-mask1)+
+				(-999.0)*((1-mask0)*mask1+(1-mask1)*mask0+mask1*mask0));	
+	#else
+		return(2.0*atan2(sqrt(a),sqrt(1-a))*R/1000.0*(1-mask0)*(1-mask1)+
+				(100000.0)*((1-mask0)*mask1+(1-mask1)*mask0+mask1*mask0));
+	#endif
 
 }
 
@@ -926,6 +933,34 @@ void Particle::make_trajectory(Vec* velgrid,float* SSTs,std::mt19937_64 &rng,int
 		}
 
 		this->path_SST[NMONTH*28-day] = interpol(SSTs,(182-1)-day);
+
+	}
+
+}
+#endif
+
+#ifdef DISTRIBUTION
+void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng,float r){
+
+	Vec dW;
+	std::normal_distribution<float> norm(0.0,sqrt(abs(DT)));
+
+	int mask_done;
+	int mask_in;
+	float dist;
+
+	for(int t=0;t<NYEAR*365;t++){
+		dW.setX(norm(rng));
+		dW.setY(norm(rng));
+		RK_move(velgrid,t+this->starttime,dW);
+
+		for(int k=0;k<this->ntarget;k++){
+			dist = haversine(this->targets[k].getPos());
+			mask_in = (dist < r) ? 1 : 0;
+			mask_done = (this->arrivals[k] < -100) ? 1 : 0;
+			this->arrivals[k] = (t+1)*mask_in*mask_done +
+				((1-mask_in)*mask_done+mask_in*(1-mask_done)+(1-mask_done)*(1-mask_in))*this->arrivals[k];
+		}
 
 	}
 
