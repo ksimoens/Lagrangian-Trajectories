@@ -148,6 +148,7 @@ Grid::Grid(float r,std::string veldir){
 	this->SSTend = 0;
 	this->SSTs = 0;
 	this->vecR = 0;
+	this->targets = 0;
 
 	fill_vels(veldir);
 	initial_particles();
