@@ -62,6 +62,9 @@ Particle::Particle(){
 	#ifdef DISTRIBUTION
 		this->targets = 0;
 		this->ntarget = 0;
+		#ifdef DISTVEL
+			this->sumvel = 0.0;
+		#endif
 	#endif
 }
 
@@ -221,10 +224,18 @@ void Particle::set_targets(Particle* vec_target,int ntarget){
 
 	this->ntarget = ntarget;
 	this->targets = new Particle[ntarget];
-	this->arrivals = new int[ntarget];
+	#ifdef DISTVEL
+		this->arrivals = new float[ntarget];
+	#else
+		this->arrivals = new int[ntarget];
+	#endif
 	for(int i=0;i<ntarget;i++){
 		this->targets[i] = vec_target[i];
-		this->arrivals[i] = -999;
+		#ifdef DISTVEL
+			this->arrivals[i] = -999.0;
+		#else
+			this->arrivals[i] = -999;
+		#endif
 	}
 
 }
@@ -492,6 +503,14 @@ float Particle::interpol(float* sstgrid,int t){
 #endif
 
 void Particle::update_pos(float K,Vec dW){
+
+	#ifdef DISTVEL
+		Vec vel_tot = 1.0/6.0*(this->vecintervel[0] + 
+						2.0*this->vecintervel[1] + 
+						2.0*this->vecintervel[2] +  
+						this->vecintervel[3]);
+		this->sumvel += pow(vel_tot.getX(),2)+pow(vel_tot.getY(),2);
+	#endif
 
 	Vec dpos = DT/6.0*(this->vecintervel[0]*this->vecnum[0] + 
 						2.0*this->vecintervel[1]*this->vecnum[1] + 
@@ -958,8 +977,13 @@ void Particle::make_trajectory(Vec* velgrid,std::mt19937_64 &rng,float r){
 			dist = haversine(this->targets[k].getPos());
 			mask_in = (dist < r) ? 1 : 0;
 			mask_done = (this->arrivals[k] < -100) ? 1 : 0;
-			this->arrivals[k] = (t+1)*mask_in*mask_done +
-				((1-mask_in)*mask_done+mask_in*(1-mask_done)+(1-mask_done)*(1-mask_in))*this->arrivals[k];
+			#ifdef DISTVEL
+				this->arrivals[k] = this->sumvel/(t+1)*mask_in*mask_done +
+					((1-mask_in)*mask_done+mask_in*(1-mask_done)+(1-mask_done)*(1-mask_in))*this->arrivals[k];
+			#else
+				this->arrivals[k] = (t+1)*mask_in*mask_done +
+					((1-mask_in)*mask_done+mask_in*(1-mask_done)+(1-mask_done)*(1-mask_in))*this->arrivals[k];
+			#endif
 		}
 
 	}

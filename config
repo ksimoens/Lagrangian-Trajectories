@@ -1,7 +1,7 @@
 x0 -6251.38889821299
 y0 3003.52566073296
 srf 10000.0
-write /media/kobe/Windows/spectrum/output/test_brown_dist
+write /media/kobe/Windows/spectrum/output/test_distvel
 velocity /media/kobe/shared/spectrum/daily/vel_transf
 network ../healpix/test_grid
 SSTbeg /media/kobe/Windows/spectrum/SST

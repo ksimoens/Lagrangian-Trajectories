@@ -2920,7 +2920,11 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	netCDF::NcFile data(w+".nc", netCDF::NcFile::replace);
 
-	data.putAtt("title","Time distributions Northern Atlantic Ocean");
+	#ifdef DISTVEL
+		data.putAtt("title","Velocity distributions Northern Atlantic Ocean");
+	#else
+		data.putAtt("title","Time distributions Northern Atlantic Ocean");
+	#endif
 	time_t timestamp;
 	time(&timestamp);
 	data.putAtt("clock time",ctime(&timestamp));
@@ -2929,7 +2933,11 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	data.putAtt("initial condition","circular");
 	data.putAtt("radius",std::to_string(this->radius)+" km");
 
-	data.putAtt("simulation type","time distributions");
+	#ifdef DISTVEL
+		data.putAtt("simulation type","velocity distributions");
+	#else
+		data.putAtt("simulation type","time distributions");
+	#endif
 
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
@@ -3021,9 +3029,15 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	countp.push_back(1);
 	countp.push_back(1);	
 
-	netCDF::NcVar varArriv = data.addVar("arrival", netCDF::ncInt, dimVector);
-	varArriv.putAtt("units", "days");
-	float vec_arriv[NPART];	
+	#ifdef DISTVEL
+		netCDF::NcVar varArriv = data.addVar("arrival", netCDF::ncFloat, dimVector);
+		varArriv.putAtt("units", "days");
+		float vec_arriv[NPART];	
+	#else
+		netCDF::NcVar varArriv = data.addVar("arrival", netCDF::ncInt, dimVector);
+		varArriv.putAtt("units", "days");
+		int vec_arriv[NPART];	
+	#endif
 
 	for(int ilat=0;ilat<nlat;ilat++){
 		startp[2] = ilat;

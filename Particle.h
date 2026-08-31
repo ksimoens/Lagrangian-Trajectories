@@ -46,7 +46,12 @@ class Particle{
 		#ifdef DISTRIBUTION
 			int ntarget{};
 			Particle* targets{};
-			int* arrivals{};
+			#ifdef DISTVEL
+				float sumvel;
+				float* arrivals{};
+			#else
+				int* arrivals{};
+			#endif
 		#endif
 
 		void trans_pos();
@@ -139,7 +144,11 @@ class Particle{
 		#ifdef DISTRIBUTION
 			void set_targets(Particle* vec_target,int ntarget);
 			Particle* get_targets(){return this->targets;};
-			int* get_arrivals(){return this->arrivals;};
+			#ifdef DISTVEL
+				float* get_arrivals(){return this->arrivals;};
+			#else
+				int* get_arrivals(){return this->arrivals;};
+			#endif
 		#endif
 		void setPos(Vec pos0){pos = pos0;};
 		int get_starttime(){return this->starttime;};
