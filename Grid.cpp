@@ -2119,15 +2119,20 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	netCDF::NcVar meandistVar = data.addVar("meandistance", netCDF::ncFloat, dimVector);
 	meandistVar.putAtt("units", "kilometres squared");
+	netCDF::NcVar vardistVar = data.addVar("vardistance", netCDF::ncFloat, dimVector);
+	vardistVar.putAtt("units", "kilometres squared");
 	
 	float mat_meandist[NTIMES][(nlat-2)][(nlon-2)];
+	float mat_vardist[NTIMES][(nlat-2)][(nlon-2)];
 	float s_dist[NTIMES];
+	float s2_dist[NTIMES];
 	int mask_dist;
 	int c_dist[NTIMES];
 	float dist_j;
 
 	for(int i=0;i<NTIMES;i++){
 		s_dist[i] = 0.0;
+		s2_dist[i] = 0.0;
 		c_dist[i] = 0;
 	}
 
@@ -2142,6 +2147,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 						dist_j = this->particles[j+NPART*(ilon-1+(nlon-2)*(ilat-1))].getDistances()[t];
 						mask_dist = (dist_j < -100.0) ? 1 : 0;
 						s_dist[t] += (1-mask_dist)*dist_j;
+						s2_dist[t] += (1-mask_dist)*dist_j*dist_j;
 						c_dist[t] += (1-mask_dist); 
 
 					} 
@@ -2152,7 +2158,9 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 					mask_dist = (c_dist[t] < (int)(NPART/10)) ? 1 : 0;
 					c_dist[t] = (mask_dist == 1) ? 1 : c_dist[t];
 					mat_meandist[t][ilat-1][ilon-1] = (1-mask_dist)*s_dist[t]/c_dist[t] + (-999.0)*mask_dist;
+					mat_vardist[t][ilat-1][ilon-1] = (1-mask_dist)*sqrt(s2_dist[t]/c_dist[t]-pow(mat_meandist[t][ilat-1][ilon-1],2))/sqrt(c_dist[t]) + (-999.0)*mask_dist;
 					s_dist[t] = 0.0;
+					s2_dist[t] = 0.0;
 					c_dist[t] = 0;
 				}			
 
@@ -2161,6 +2169,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 				
 	meandistVar.putVar(startp,countp,mat_meandist);
+	vardistVar.putVar(startp,countp,mat_vardist);
 
 	#ifdef HOUR
 	std::string monthstr;
@@ -2942,16 +2951,9 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 	int nlon = (int)((OUTLONMAX-OUTLONMIN)/OUTLONRES);
 	int nlat = (int)((OUTLATMAX-OUTLATMIN)/OUTLATRES);
 
-	netCDF::NcDim partDim = data.addDim("particles", NPART);
 	netCDF::NcDim targDim = data.addDim("targets", this->ntarget);
 	netCDF::NcDim latDim = data.addDim("lat", nlat);
 	netCDF::NcDim lonDim = data.addDim("lon", nlon);
-
-	std::vector<netCDF::NcDim> dimVector;
-	dimVector.push_back(partDim);
-	dimVector.push_back(targDim);
-	dimVector.push_back(latDim);
-	dimVector.push_back(lonDim);
 
 	std::vector<netCDF::NcDim> dimVector_target;
 	dimVector_target.push_back(targDim);
@@ -3019,6 +3021,124 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 
 	varLat.putVar(startp_lat,countp_lat,vec_lat);
 
+	std::vector<int> veclon;
+	std::vector<int> veclat;
+	std::vector<int> vectar;
+	std::vector<int> veccount;
+
+	#ifdef DISTVEL
+		std::vector<float> vecarriv;
+		float a;
+	#else
+		std::vector<int> vecarriv;
+		int a;
+	#endif
+
+	for(int ilat=0;ilat<nlat;ilat++){
+		for(int ilon=0;ilon<nlon;ilon++){
+			for(int t=0;t<this->ntarget;t++){
+				int c = 0;
+
+				for(int p=0;p<NPART;p++){
+					a = this->particles[p+NPART*(ilon+ilat*nlon)].get_arrivals()[t];
+					if(a >= 0){
+						c++;
+						vecarriv.push_back(a);
+					}
+				}
+				if(c != 0){
+					veclon.push_back(ilon);
+					veclat.push_back(ilat);
+					vectar.push_back(t);
+					veccount.push_back(c);
+				}
+			}
+		}
+	}
+
+	size_t nrec = veclon.size();
+
+	netCDF::NcDim recDim = data.addDim("records", nrec);
+
+	std::vector<netCDF::NcDim> dimVector_record;
+	dimVector_record.push_back(recDim);
+
+	std::vector<size_t> startp_record,countp_record;
+	startp_record.push_back(0);
+	countp_record.push_back(nrec);
+
+	netCDF::NcVar varLonRec = data.addVar("lon_rec", netCDF::ncInt, dimVector_record);
+	varLonRec.putAtt("units", "index");
+	netCDF::NcVar varLatRec = data.addVar("lat_rec", netCDF::ncInt, dimVector_record);
+	varLatRec.putAtt("units", "index");
+	netCDF::NcVar varTarRec = data.addVar("target_rec", netCDF::ncInt, dimVector_record);
+	varTarRec.putAtt("units", "index");
+	netCDF::NcVar varCntRec = data.addVar("count_rec", netCDF::ncInt, dimVector_record);
+	varCntRec.putAtt("units", "index");
+	int vec_lonrec[nrec];
+	int vec_latrec[nrec];
+	int vec_tarrec[nrec];
+	int vec_cntrec[nrec];
+
+	for(size_t irec=0;irec<nrec;irec++){
+		vec_lonrec[irec] = veclon[irec];
+		vec_latrec[irec] = veclat[irec];
+		vec_tarrec[irec] = vectar[irec];
+		vec_cntrec[irec] = veccount[irec];
+	}
+
+	varLonRec.putVar(startp_record,countp_record,vec_lonrec);
+	varLatRec.putVar(startp_record,countp_record,vec_latrec);
+	varTarRec.putVar(startp_record,countp_record,vec_tarrec);
+	varCntRec.putVar(startp_record,countp_record,vec_cntrec);
+
+	size_t narriv = vecarriv.size();
+	int nstore = (int)floor(narriv/100);
+
+	netCDF::NcDim arrDim = data.addDim("Narrivals", narriv);
+
+	std::vector<netCDF::NcDim> dimVector;
+	dimVector.push_back(arrDim);
+
+	std::vector<size_t> startp_store,countp_store;
+	startp_store.push_back(0);
+	countp_store.push_back(nstore);
+
+	#ifdef DISTVEL
+		netCDF::NcVar varArriv = data.addVar("arrival", netCDF::ncFloat, dimVector);
+		varArriv.putAtt("units", "(m/s)^2");
+		float vec_arriv[nstore];	
+	#else
+		netCDF::NcVar varArriv = data.addVar("arrival", netCDF::ncInt, dimVector);
+		varArriv.putAtt("units", "days");
+		int vec_arriv[nstore];	
+	#endif
+
+	for(int i=0;i<99;i++){
+		for(int j=0;j<nstore;j++){
+			vec_arriv[j] = vecarriv[i*nstore+j];
+		}
+		varArriv.putVar(startp_store,countp_store,vec_arriv);
+		startp_store[0] += nstore;
+	}
+
+	nstore = narriv-99*nstore;
+
+	#ifdef DISTVEL
+		float vec_arrivfinal[nstore];	
+	#else
+		int vec_arrivfinal[nstore];	
+	#endif
+
+	countp_store[0] = nstore;
+	for(int j=0;j<nstore;j++){
+		vec_arrivfinal[j] = vecarriv[99*nstore+j];
+	}
+	varArriv.putVar(startp_store,countp_store,vec_arrivfinal);
+
+
+	/*varLat.putVar(startp_lat,countp_lat,vec_lat);
+
 	std::vector<size_t> startp,countp;
 	startp.push_back(0);
 	startp.push_back(0);
@@ -3052,7 +3172,7 @@ void Grid::write_simulation(std::string w,double dt_init,double dt_sim){
 			}
 		}
 	}
-
+	*/
 		
 
 	data.putAtt("length of trajectories",std::to_string(NYEAR)+" years");
